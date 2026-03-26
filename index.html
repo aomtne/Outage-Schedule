@@ -2195,9 +2195,12 @@
                 const printW = A3_W_MM - MARGIN_MM * 2;  // usable mm
                 const printH = A3_H_MM - MARGIN_MM * 2;
 
+                // 使用畫面實際寬度
+                const screenW = document.querySelector('.app').offsetWidth;
+
                 // Create off-screen container
                 const offscreen = document.createElement('div');
-                offscreen.style.cssText = 'position:fixed;left:-9999px;top:0;width:3800px;background:#fff;z-index:-1;';
+                offscreen.style.cssText = `position:fixed;left:-9999px;top:0;width:${screenW}px;background:#fff;z-index:-1;`;
                 document.body.appendChild(offscreen);
 
                 // Clone header
@@ -2205,7 +2208,17 @@
                 hClone.style.boxShadow = 'none';
                 offscreen.appendChild(hClone);
 
-                // Build chart snapshot: labels + bars as a wide layout
+                // Clone warning banner if visible
+                const warnEl = document.getElementById('rangeWarning');
+                if (warnEl && warnEl.style.display !== 'none') {
+                    offscreen.appendChild(warnEl.cloneNode(true));
+                }
+
+                // Clone legend
+                const legendEl = document.querySelector('.legend');
+                if (legendEl) offscreen.appendChild(legendEl.cloneNode(true));
+
+                // Build chart snapshot: sidebar + chart as a wide layout
                 const snapDiv = document.createElement('div');
                 snapDiv.style.cssText = 'display:flex;background:#fff;';
 
@@ -2218,11 +2231,14 @@
                 const chartClone = document.createElement('div');
                 chartClone.style.cssText = 'flex:1;display:flex;flex-direction:column;overflow:visible;';
 
-                // Time row clone
-                const timeRow = document.querySelector('.time-row');
-                const trClone = timeRow.cloneNode(true);
-                trClone.style.cssText = 'display:flex;height:28px;border-bottom:1px solid #ddd;background:#fafafa;overflow:visible;';
-                chartClone.appendChild(trClone);
+                // Clone ALL time rows (top row + sub row)
+                const timeRows = document.querySelectorAll('.time-row');
+                timeRows.forEach(tr => {
+                    if (tr.style.display === 'none') return;
+                    const trClone = tr.cloneNode(true);
+                    trClone.style.cssText = `display:flex;height:${tr.offsetHeight}px;border-bottom:1px solid #ddd;background:#fafafa;overflow:visible;`;
+                    chartClone.appendChild(trClone);
+                });
 
                 // Gantt body clone
                 const ganttBody = document.createElement('div');
@@ -2252,7 +2268,7 @@
                     useCORS: true,
                     backgroundColor: '#ffffff',
                     logging: false,
-                    windowWidth: 3800
+                    windowWidth: screenW
                 });
 
                 document.body.removeChild(offscreen);
