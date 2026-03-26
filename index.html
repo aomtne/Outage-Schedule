@@ -307,6 +307,9 @@
             <div class="ctrl-group" style="justify-content:flex-end">
                 <div class="ctrl-label">&nbsp;</div>
                 <button class="export-btn" id="exportPdf">匯出 A3 PDF</button>
+                <button class="export-btn" id="exportXlsx" style="background:#1976d2;margin-left:6px;">匯出 Excel</button>
+                <button class="export-btn" id="importXlsxBtn" style="background:#388e3c;margin-left:6px;">載入 Excel</button>
+                <input type="file" id="importXlsxFile" accept=".xlsx,.xls" style="display:none">
             </div>
         </div>
         <div id="rangeWarning" style="display:none;padding:4px 16px;font-size:12px;color:#e65100;background:#fff3e0;border-bottom:1px solid #ffe0b2;"></div>
@@ -2304,6 +2307,257 @@
                 btn.textContent = '匯出 A3 PDF';
                 btn.disabled = false;
             }
+        });
+
+        // === Excel Export ===
+        document.getElementById('exportXlsx').addEventListener('click', async () => {
+            const btn = document.getElementById('exportXlsx');
+            btn.disabled = true; btn.textContent = '準備中...';
+            try {
+                await loadScript('https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js');
+                btn.textContent = '產生Excel中...';
+
+                const filtered = filter();
+                const groups = groupByPlantUnit(filtered);
+                const rows = [];
+
+                groups.forEach(g => {
+                    g.records.forEach(r => {
+                        const rStart = new Date(r.start), rEnd = new Date(r.end);
+                        const dur = (rEnd - rStart) / 864e5;
+                        const recKey = `${r.plant}|${r.unit||''}|${r.year}`;
+                        const label = r.plant + ' ' + (r.unit || '');
+                        const uN = (r.unit||'').toUpperCase();
+                        const isGT = /GT\d/.test(uN);
+                        const isST = /ST\d/.test(uN) && !isGT;
+                        const isETPlant = (r.plant === '林口' || r.plant === '協和');
+                        const needET = isST || (isETPlant && !isGT);
+                        const cat = unitCategory(r.unit);
+
+                        // NDT schedule
+                        let ndtStart = '', ndtEnd = '', ndtDays = '', ndtPC = '';
+                        if (dur > 0) {
+                            let ns, ne;
+                            if (recKey in state.ndtSplits) {
+                                // For splits, export each segment as separate row
+                                const segs = state.ndtSplits[recKey];
+                                segs.forEach(seg => {
+                                    const segS = new Date(seg.start), segE = new Date(seg.end);
+                                    if (segE > segS) {
+                                        const pc = seg.pc !== null ? seg.pc : ({GT:state.pGT, ST:state.pST, other:state.pOther}[cat]||0);
+                                        // ET for this row
+                                        let etS = '', etE = '', etD = '', etP = '';
+                                        if (needET) {
+                                            let es, ee;
+                                            if (recKey in state.etOverrides) {
+                                                es = new Date(state.etOverrides[recKey].start);
+                                                ee = new Date(state.etOverrides[recKey].end);
+                                            } else {
+                                                es = new Date(rStart); es.setDate(es.getDate() + state.etOffStart);
+                                                ee = new Date(rEnd); ee.setDate(ee.getDate() - state.etOffEnd);
+                                            }
+                                            if (ee > es) { etS = es.toISOString().slice(0,10); etE = ee.toISOString().slice(0,10); etD = Math.round((ee-es)/864e5); etP = state.pET; }
+                                        }
+                                        rows.push([label, r.start, r.end,
+                                            segS.toISOString().slice(0,10), segE.toISOString().slice(0,10),
+                                            Math.round((segE-segS)/864e5), pc,
+                                            etS, etE, etD, etP]);
+                                    }
+                                });
+                                return; // skip default NDT row
+                            } else {
+                                const ndtOv = state.ndtOverrides[recKey];
+                                if (ndtOv) {
+                                    ns = new Date(ndtOv.start); ne = new Date(ndtOv.end);
+                                } else {
+                                    ns = new Date(rStart); ns.setDate(ns.getDate() + state.ndtOffStart);
+                                    ne = new Date(rEnd); ne.setDate(ne.getDate() - state.ndtOffEnd);
+                                }
+                                if (ne > ns) {
+                                    ndtStart = ns.toISOString().slice(0,10);
+                                    ndtEnd = ne.toISOString().slice(0,10);
+                                    ndtDays = Math.round((ne - ns) / 864e5);
+                                    const pcOv = state.ndtPCOverrides[recKey];
+                                    ndtPC = pcOv !== undefined ? pcOv : ({GT:state.pGT, ST:state.pST, other:state.pOther}[cat]||0);
+                                }
+                            }
+                        }
+
+                        // ET schedule
+                        let etStart = '', etEnd = '', etDays = '', etPC = '';
+                        if (needET && dur > 0) {
+                            if (recKey in state.etSplits) {
+                                const segs = state.etSplits[recKey];
+                                segs.forEach(seg => {
+                                    const segS = new Date(seg.start), segE = new Date(seg.end);
+                                    if (segE > segS) {
+                                        const pc = seg.pc !== null ? seg.pc : state.pET;
+                                        rows.push([label, r.start, r.end,
+                                            ndtStart, ndtEnd, ndtDays, ndtPC,
+                                            segS.toISOString().slice(0,10), segE.toISOString().slice(0,10),
+                                            Math.round((segE-segS)/864e5), pc]);
+                                    }
+                                });
+                                return;
+                            } else {
+                                let es, ee;
+                                const etOv = state.etOverrides[recKey];
+                                if (etOv) {
+                                    es = new Date(etOv.start); ee = new Date(etOv.end);
+                                } else {
+                                    es = new Date(rStart); es.setDate(es.getDate() + state.etOffStart);
+                                    ee = new Date(rEnd); ee.setDate(ee.getDate() - state.etOffEnd);
+                                }
+                                if (ee > es) {
+                                    etStart = es.toISOString().slice(0,10);
+                                    etEnd = ee.toISOString().slice(0,10);
+                                    etDays = Math.round((ee - es) / 864e5);
+                                    const pcOv = state.etPCOverrides[recKey];
+                                    etPC = pcOv !== undefined ? pcOv : state.pET;
+                                }
+                            }
+                        }
+
+                        rows.push([label, r.start, r.end,
+                            ndtStart, ndtEnd, ndtDays, ndtPC,
+                            etStart, etEnd, etDays, etPC]);
+                    });
+                });
+
+                // Build worksheet
+                const header = ['機組名稱','大修開始日','大修結束日','NDT開始日','NDT結束日','NDT持續天數','NDT人數','ET開始日','ET結束日','ET持續天數','ET人數'];
+                const wsData = [header, ...rows];
+                const ws = XLSX.utils.aoa_to_sheet(wsData);
+
+                // Column widths
+                ws['!cols'] = [
+                    {wch:14},{wch:12},{wch:12},{wch:12},{wch:12},{wch:10},{wch:8},
+                    {wch:12},{wch:12},{wch:10},{wch:8}
+                ];
+
+                const wb = XLSX.utils.book_new();
+                XLSX.utils.book_append_sheet(wb, ws, '檢測排程');
+                XLSX.writeFile(wb, '大修檢測排程.xlsx');
+
+                btn.textContent = '匯出 Excel'; btn.disabled = false;
+            } catch (err) {
+                console.error('Excel export error:', err);
+                alert('Excel匯出失敗: ' + err.message);
+                btn.textContent = '匯出 Excel'; btn.disabled = false;
+            }
+        });
+
+        // === Excel Import ===
+        document.getElementById('importXlsxBtn').addEventListener('click', () => {
+            document.getElementById('importXlsxFile').click();
+        });
+        document.getElementById('importXlsxFile').addEventListener('change', async (e) => {
+            const file = e.target.files[0];
+            if (!file) return;
+            const btn = document.getElementById('importXlsxBtn');
+            btn.disabled = true; btn.textContent = '載入中...';
+            try {
+                await loadScript('https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js');
+                const ab = await file.arrayBuffer();
+                const wb = XLSX.read(ab, {type:'array'});
+                const ws = wb.Sheets[wb.SheetNames[0]];
+                const rows = XLSX.utils.sheet_to_json(ws, {defval:''});
+
+                // Build lookup: "plant unit|overhaulStart" → recKey (plant|unit|year)
+                const recLookup = {};
+                data.forEach(r => {
+                    const label = r.plant + ' ' + (r.unit || '');
+                    const lk = label.trim() + '|' + r.start;
+                    recLookup[lk] = `${r.plant}|${r.unit||''}|${r.year}`;
+                });
+
+                let applied = 0, skipped = 0;
+                // Track which recKeys already had their first NDT/ET segment imported (for building splits)
+                const ndtSegments = {};  // recKey → [{start, end, pc}]
+                const etSegments = {};
+
+                rows.forEach(row => {
+                    const label = String(row['機組名稱'] || '').trim();
+                    const ovStart = String(row['大修開始日'] || '').trim();
+                    const ovEnd = String(row['大修結束日'] || '').trim();
+                    if (!label || !ovStart) { skipped++; return; }
+
+                    const lk = label + '|' + ovStart;
+                    const recKey = recLookup[lk];
+                    if (!recKey) { skipped++; return; }
+
+                    // NDT
+                    const ndtS = String(row['NDT開始日'] || '').trim();
+                    const ndtE = String(row['NDT結束日'] || '').trim();
+                    const ndtPC = row['NDT人數'];
+                    if (ndtS && ndtE) {
+                        if (!ndtSegments[recKey]) ndtSegments[recKey] = [];
+                        ndtSegments[recKey].push({
+                            start: ndtS, end: ndtE,
+                            pc: (ndtPC !== '' && ndtPC !== null && ndtPC !== undefined) ? Number(ndtPC) : null
+                        });
+                    }
+
+                    // ET
+                    const etS = String(row['ET開始日'] || '').trim();
+                    const etE = String(row['ET結束日'] || '').trim();
+                    const etPC = row['ET人數'];
+                    if (etS && etE) {
+                        if (!etSegments[recKey]) etSegments[recKey] = [];
+                        etSegments[recKey].push({
+                            start: etS, end: etE,
+                            pc: (etPC !== '' && etPC !== null && etPC !== undefined) ? Number(etPC) : null
+                        });
+                    }
+
+                    applied++;
+                });
+
+                // Apply to state: single segment → override, multiple segments → splits
+                for (const [recKey, segs] of Object.entries(ndtSegments)) {
+                    if (segs.length === 1) {
+                        state.ndtOverrides[recKey] = { start: segs[0].start, end: segs[0].end };
+                        if (segs[0].pc !== null) state.ndtPCOverrides[recKey] = segs[0].pc;
+                    } else {
+                        state.ndtSplits[recKey] = segs;
+                    }
+                }
+                for (const [recKey, segs] of Object.entries(etSegments)) {
+                    if (segs.length === 1) {
+                        state.etOverrides[recKey] = { start: segs[0].start, end: segs[0].end };
+                        if (segs[0].pc !== null) state.etPCOverrides[recKey] = segs[0].pc;
+                    } else {
+                        state.etSplits[recKey] = segs;
+                    }
+                }
+
+                // Show reset button
+                const resetBtn = document.getElementById('resetOverrides');
+                if (resetBtn) resetBtn.style.display = '';
+
+                // Ensure NDT/ET toggles are on
+                if (!state.showNDT) {
+                    state.showNDT = true;
+                    document.getElementById('showNDT').checked = true;
+                    document.getElementById('legNDT').style.display = '';
+                }
+                if (!state.showET) {
+                    state.showET = true;
+                    document.getElementById('showET').checked = true;
+                    document.getElementById('legET').style.display = '';
+                }
+
+                render();
+                alert(`載入完成！已套用 ${applied} 筆排程資料` + (skipped > 0 ? `，${skipped} 筆無法對應` : ''));
+
+                btn.textContent = '載入 Excel'; btn.disabled = false;
+            } catch (err) {
+                console.error('Excel import error:', err);
+                alert('Excel載入失敗: ' + err.message);
+                btn.textContent = '載入 Excel'; btn.disabled = false;
+            }
+            // Reset file input so same file can be re-selected
+            e.target.value = '';
         });
 
         render();
