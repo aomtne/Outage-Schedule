@@ -1,0 +1,2298 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>台電大修排程甘特圖 (105-116年度)</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: 'Microsoft JhengHei', 'Segoe UI', sans-serif;
+            background: #f5f5f5;
+            color: #333;
+            overflow: hidden;
+        }
+        .app { display: flex; flex-direction: column; height: 100vh; }
+
+        /* Header */
+        .header {
+            background: #fff;
+            border-bottom: 1px solid #ddd;
+            padding: 10px 16px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.08);
+            flex-shrink: 0;
+        }
+        .header-title {
+            font-size: 18px;
+            font-weight: bold;
+            color: #1565c0;
+            margin-bottom: 8px;
+        }
+        .controls-row {
+            display: flex;
+            gap: 24px;
+            flex-wrap: wrap;
+            align-items: flex-start;
+        }
+        .ctrl-group { display: flex; flex-direction: column; gap: 4px; }
+        .ctrl-label { font-size: 11px; font-weight: 600; color: #888; text-transform: uppercase; }
+        .ctrl-options { display: flex; gap: 6px; flex-wrap: wrap; align-items: center; }
+        .chk { display: flex; align-items: center; gap: 3px; cursor: pointer; font-size: 12px; }
+        .chk input { cursor: pointer; width: 14px; height: 14px; }
+        .btn-grp { display: flex; gap: 2px; }
+        .gbtn {
+            padding: 4px 10px; border: 1px solid #ccc; background: #fff;
+            cursor: pointer; border-radius: 3px; font-size: 12px; transition: all 0.15s;
+        }
+        .gbtn:hover { background: #eee; }
+        .gbtn.active { background: #1976d2; color: #fff; border-color: #1976d2; }
+        .date-input {
+            padding: 3px 6px; border: 1px solid #ccc; border-radius: 3px;
+            font-size: 12px; width: 120px; font-family: inherit;
+        }
+        .date-input:focus { outline: none; border-color: #1976d2; }
+        .export-btn {
+            padding: 5px 14px; background: #e65100; color: #fff; border: none;
+            border-radius: 3px; cursor: pointer; font-size: 12px; font-weight: 600;
+            transition: background 0.15s; white-space: nowrap;
+        }
+        .export-btn:hover { background: #bf360c; }
+        .export-btn:disabled { background: #bbb; cursor: wait; }
+        .num-input {
+            width: 50px; padding: 3px 4px; border: 1px solid #ccc; border-radius: 3px;
+            font-size: 12px; text-align: center; font-family: inherit;
+        }
+        .num-input:focus { outline: none; border-color: #1976d2; }
+        .num-label { font-size: 11px; color: #555; white-space: nowrap; }
+        .person-badge {
+            position: absolute; font-size: 9px; color: #fff; font-weight: 700;
+            pointer-events: none; text-shadow: 0 0 2px rgba(0,0,0,0.6);
+            white-space: nowrap; line-height: 14px; padding: 0 3px;
+            overflow: hidden; text-overflow: ellipsis;
+        }
+
+        /* Legend */
+        .legend { display: flex; gap: 14px; margin-top: 6px; font-size: 11px; }
+        .leg-item { display: flex; align-items: center; gap: 4px; }
+        .leg-dot { width: 14px; height: 14px; border-radius: 2px; }
+
+        /* Main area */
+        .main { flex: 1; display: flex; overflow: hidden; background: #fff; }
+
+        /* Left sidebar for plant filter */
+        .sidebar {
+            width: 110px; min-width: 110px;
+            border-right: 1px solid #ddd;
+            overflow-y: auto; background: #fafafa;
+            padding: 6px;
+            flex-shrink: 0;
+        }
+        .sidebar-title { font-size: 11px; font-weight: 600; color: #888; margin-bottom: 4px; }
+        .sidebar .chk { font-size: 11px; padding: 1px 0; }
+
+        /* Chart wrapper */
+        .chart-wrapper {
+            flex: 1; display: flex; flex-direction: column; overflow: hidden;
+        }
+
+        /* Time header */
+        .time-row {
+            display: flex; height: 28px; border-bottom: 1px solid #ddd;
+            background: #fafafa; flex-shrink: 0;
+        }
+        .time-label-spacer { width: 160px; min-width: 160px; border-right: 1px solid #ddd; flex-shrink: 0; }
+        .time-cells { flex: 1; display: flex; overflow: hidden; }
+        .tcell {
+            display: flex; align-items: center; justify-content: center;
+            font-size: 10px; color: #666; border-right: 1px solid #eee;
+            flex-shrink: 0; white-space: nowrap; overflow: hidden;
+        }
+
+        /* Gantt body */
+        .gantt-body { flex: 1; display: flex; overflow: hidden; }
+        .gantt-labels {
+            width: 160px; min-width: 160px;
+            overflow: hidden; border-right: 1px solid #ddd; flex-shrink: 0;
+        }
+        .gantt-bars { flex: 1; overflow-x: hidden; overflow-y: auto; }
+        .gantt-bars-inner { position: relative; }
+
+        .grow {
+            display: flex; height: 22px; border-bottom: 1px solid #f0f0f0; align-items: center;
+        }
+        .glabel {
+            height: 22px; padding: 0 6px;
+            display: flex; align-items: center;
+            font-size: 11px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+            border-bottom: 1px solid #f0f0f0; background: #fafafa;
+        }
+        .gbar {
+            position: absolute; height: 14px; border-radius: 2px;
+            cursor: pointer; box-shadow: 0 1px 2px rgba(0,0,0,0.15);
+            transition: opacity 0.15s;
+            min-width: 2px;
+        }
+        .gbar:hover { opacity: 0.8; box-shadow: 0 2px 6px rgba(0,0,0,0.3); z-index: 100; }
+
+        .t-nuclear { background: #d32f2f; }
+        .t-thermal { background: #1976d2; }
+        .t-cc { background: #388e3c; }
+        .t-hydro { background: #0097a7; }
+        .t-ipp { background: #7b1fa2; }
+
+        /* NDT / ET overlay bars */
+        .gbar-ndt, .gbar-et {
+            position: absolute; height: 8px; border-radius: 2px;
+            box-shadow: 0 0 2px rgba(0,0,0,0.3);
+            min-width: 6px; z-index: 10;
+            cursor: grab;
+        }
+        .gbar-ndt { background: #ff9800; border: 1px solid #e65100; }
+        .gbar-et { background: #e91e63; border: 1px solid #880e4f; }
+        .gbar-ndt:hover, .gbar-et:hover { opacity: 0.85; box-shadow: 0 1px 4px rgba(0,0,0,0.4); z-index: 101; }
+        .gbar-ndt.dragging, .gbar-et.dragging { opacity: 0.95; z-index: 200; box-shadow: 0 2px 8px rgba(0,0,0,0.5); }
+        .drag-handle {
+            position: absolute; top: -3px; width: 6px; height: 14px;
+            cursor: ew-resize; z-index: 11; border-radius: 2px;
+        }
+        .drag-handle:hover { background: rgba(0,0,0,0.15); }
+        .drag-handle.left { left: -2px; }
+        .drag-handle.right { right: -2px; }
+        .gbar-ndt .drag-handle:hover { background: rgba(230,81,0,0.3); }
+        .gbar-et .drag-handle:hover { background: rgba(136,14,79,0.3); }
+        .drag-date-tip {
+            position: fixed; background: rgba(30,30,30,0.95); color: #fff;
+            padding: 4px 8px; border-radius: 3px; font-size: 11px;
+            pointer-events: none; z-index: 9999; white-space: nowrap; display: none;
+        }
+        .drag-date-tip.vis { display: block; }
+        .gbar-ndt.has-override, .gbar-et.has-override {
+            border-style: dashed; border-width: 2px;
+        }
+        .bar-pc {
+            position: absolute; top: -13px; left: 50%; transform: translateX(-50%);
+            font-size: 9px; font-weight: 700; white-space: nowrap;
+            pointer-events: none; line-height: 1; padding: 1px 3px;
+            border-radius: 2px; min-width: 12px; text-align: center;
+        }
+        .bar-pc.ndt { color: #e65100; background: rgba(255,255,255,0.85); }
+        .bar-pc.et { color: #880e4f; background: rgba(255,255,255,0.85); }
+        .bar-pc.override { font-style: italic; text-decoration: underline; }
+        .pc-editor {
+            position: fixed; z-index: 10000; background: #fff;
+            border: 2px solid #333; border-radius: 6px; padding: 10px 14px;
+            box-shadow: 0 4px 16px rgba(0,0,0,0.3); font-size: 13px;
+            display: none;
+        }
+        .pc-editor.vis { display: block; }
+        .pc-editor label { display: block; margin-bottom: 6px; font-weight: 600; }
+        .pc-editor input {
+            width: 60px; padding: 3px 6px; font-size: 14px; border: 1px solid #999;
+            border-radius: 3px; text-align: center;
+        }
+        .pc-editor .pc-btns { margin-top: 8px; display: flex; gap: 6px; }
+        .pc-editor button {
+            padding: 3px 10px; border-radius: 3px; cursor: pointer; font-size: 12px; border: 1px solid #999;
+        }
+        .pc-editor .pc-ok { background: #1976d2; color: #fff; border-color: #1565c0; }
+        .pc-editor .pc-cancel { background: #eee; }
+        .pc-editor .pc-reset { background: #fff3e0; color: #e65100; border-color: #e65100; }
+        .leg-dot.t-ndt { background: #ff9800; border: 1px solid #e65100; }
+        .leg-dot.t-et { background: #e91e63; border: 1px solid #880e4f; }
+
+        .tooltip {
+            position: fixed; background: rgba(30,30,30,0.95); color: #fff;
+            padding: 6px 10px; border-radius: 4px; font-size: 12px;
+            pointer-events: none; z-index: 9999; display: none; white-space: nowrap;
+        }
+        .tooltip.vis { display: block; }
+
+        .empty-msg {
+            display: flex; align-items: center; justify-content: center;
+            height: 100%; color: #aaa; font-size: 14px;
+        }
+
+        /* Grid lines */
+        .grid-line {
+            position: absolute; top: 0; width: 1px; background: #f0f0f0; pointer-events: none;
+        }
+
+        ::-webkit-scrollbar { width: 6px; height: 6px; }
+        ::-webkit-scrollbar-track { background: #f1f1f1; }
+        ::-webkit-scrollbar-thumb { background: #bbb; border-radius: 3px; }
+    </style>
+</head>
+<body>
+<div class="app">
+    <div class="header">
+        <div class="header-title">台灣電力公司 大修排程甘特圖 (105-116年度)</div>
+        <div class="controls-row">
+            <div class="ctrl-group">
+                <div class="ctrl-label">年度</div>
+                <div class="ctrl-options" id="yearCtrl"></div>
+            </div>
+            <div class="ctrl-group">
+                <div class="ctrl-label">地區</div>
+                <div class="ctrl-options" id="regionCtrl">
+                    <label class="chk"><input type="checkbox" id="rAll" checked>全部</label>
+                    <label class="chk"><input type="checkbox" id="r北" checked>北部</label>
+                    <label class="chk"><input type="checkbox" id="r中" checked>中部</label>
+                    <label class="chk"><input type="checkbox" id="r南" checked>南部</label>
+                </div>
+            </div>
+            <div class="ctrl-group">
+                <div class="ctrl-label">時間粒度</div>
+                <div class="btn-grp" id="granCtrl">
+                    <button class="gbtn" data-g="day">日</button>
+                    <button class="gbtn active" data-g="week">週</button>
+                    <button class="gbtn" data-g="month">月</button>
+                </div>
+            </div>
+            <div class="ctrl-group">
+                <div class="ctrl-label">自訂日期範圍</div>
+                <div class="ctrl-options" style="align-items:center;">
+                    <input type="date" id="dateFrom" class="date-input" title="開始日期">
+                    <span style="font-size:12px;color:#888;margin:0 2px;">＋</span>
+                    <input type="range" id="daySlider" min="90" max="720" value="365" step="1"
+                        style="width:140px;cursor:pointer;vertical-align:middle;" title="顯示天數">
+                    <span id="daySliderVal" style="font-size:12px;font-weight:600;color:#1976d2;min-width:50px;text-align:center;">365 天</span>
+                    <span id="dateToLabel" style="font-size:11px;color:#888;min-width:90px;">→ </span>
+                    <button class="gbtn" id="dateReset" title="清除自訂範圍，回到自動範圍">重置</button>
+                </div>
+            </div>
+            <div class="ctrl-group">
+                <div class="ctrl-label">檢測排程</div>
+                <div class="ctrl-options">
+                    <label class="chk"><input type="checkbox" id="showNDT">NDT</label>
+                    <label class="chk"><input type="checkbox" id="showET">ET (僅ST)</label>
+                    <button id="resetOverrides" style="font-size:11px;padding:1px 6px;cursor:pointer;background:#fff3e0;border:1px solid #e65100;border-radius:3px;color:#e65100;display:none" title="重設所有手動調整的NDT/ET排程">重設排程</button>
+                </div>
+            </div>
+            <div class="ctrl-group">
+                <div class="ctrl-label">NDT 排程偏移 (天)</div>
+                <div class="ctrl-options" style="gap:6px">
+                    <span class="num-label">開始後</span><input type="number" id="ndtOffStart" class="num-input" min="0" value="10" title="大修開始後第N天，NDT檢測開始">
+                    <span class="num-label">結束前</span><input type="number" id="ndtOffEnd" class="num-input" min="0" value="14" title="大修結束前第N天，NDT檢測結束">
+                </div>
+            </div>
+            <div class="ctrl-group">
+                <div class="ctrl-label">ET 排程偏移 (天)</div>
+                <div class="ctrl-options" style="gap:6px">
+                    <span class="num-label">開始後</span><input type="number" id="etOffStart" class="num-input" min="0" value="20" title="大修開始後第N天，ET檢測開始">
+                    <span class="num-label">結束前</span><input type="number" id="etOffEnd" class="num-input" min="0" value="14" title="大修結束前第N天，ET檢測結束">
+                </div>
+            </div>
+            <div class="ctrl-group">
+                <div class="ctrl-label">NDT 預估人數</div>
+                <div class="ctrl-options" style="gap:8px">
+                    <span class="num-label">GT</span><input type="number" id="pGT" class="num-input" min="0" placeholder="—">
+                    <span class="num-label">ST</span><input type="number" id="pST" class="num-input" min="0" placeholder="—">
+                    <span class="num-label">燃煤/其他</span><input type="number" id="pOther" class="num-input" min="0" placeholder="—">
+                </div>
+            </div>
+            <div class="ctrl-group">
+                <div class="ctrl-label">ET 預估人數</div>
+                <div class="ctrl-options" style="gap:8px">
+                    <span class="num-label">ET</span><input type="number" id="pET" class="num-input" min="0" placeholder="—">
+                </div>
+            </div>
+            <div class="ctrl-group">
+                <div class="ctrl-label">基線人力</div>
+                <div class="ctrl-options" style="gap:8px">
+                    <span class="num-label" style="color:#e65100">NDT</span><input type="number" id="baseNDT" class="num-input" min="0" value="15">
+                    <span class="num-label" style="color:#880e4f">ET</span><input type="number" id="baseET" class="num-input" min="0" value="6">
+                    <span class="num-label" style="color:#1565c0">Total</span><input type="number" id="baseTotal" class="num-input" min="0" value="21">
+                </div>
+            </div>
+            <div class="ctrl-group" style="justify-content:flex-end">
+                <div class="ctrl-label">&nbsp;</div>
+                <button class="export-btn" id="exportPdf">匯出 A3 PDF</button>
+            </div>
+        </div>
+        <div id="rangeWarning" style="display:none;padding:4px 16px;font-size:12px;color:#e65100;background:#fff3e0;border-bottom:1px solid #ffe0b2;"></div>
+        <div class="legend">
+            <div class="leg-item"><div class="leg-dot t-nuclear"></div>核能</div>
+            <div class="leg-item"><div class="leg-dot t-thermal"></div>火力</div>
+            <div class="leg-item"><div class="leg-dot t-cc"></div>複循環</div>
+            <div class="leg-item"><div class="leg-dot t-hydro"></div>水力</div>
+            <div class="leg-item"><div class="leg-dot t-ipp"></div>IPP</div>
+            <div class="leg-item" id="legNDT" style="display:none"><div class="leg-dot t-ndt"></div>NDT排程</div>
+            <div class="leg-item" id="legET" style="display:none"><div class="leg-dot t-et"></div>ET排程(ST)</div>
+        </div>
+    </div>
+
+    <div class="main">
+        <div class="sidebar" id="sidebar">
+            <div class="sidebar-title">電廠</div>
+            <label class="chk"><input type="checkbox" id="pAll" checked>全部</label>
+            <div id="plantList"></div>
+        </div>
+
+        <div class="chart-wrapper">
+            <div class="time-row">
+                <div class="time-label-spacer"></div>
+                <div class="time-cells" id="timeCells"></div>
+            </div>
+            <div class="time-row" id="timeSubRow" style="display:none;height:20px;">
+                <div class="time-label-spacer"></div>
+                <div class="time-cells" id="timeSubCells" style="font-size:9px;"></div>
+            </div>
+            <div class="gantt-body">
+                <div class="gantt-labels" id="ganttLabels"></div>
+                <div class="gantt-bars" id="ganttBars">
+                    <div class="gantt-bars-inner" id="ganttInner"></div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+<div class="tooltip" id="tip"></div>
+<div class="drag-date-tip" id="dragTip"></div>
+<div class="pc-editor" id="pcEditor">
+    <label id="pcEditorLabel">派工人數</label>
+    <input type="number" id="pcEditorInput" min="0" max="999">
+    <div class="pc-btns">
+        <button class="pc-ok" id="pcEditorOk">確定</button>
+        <button class="pc-reset" id="pcEditorReset">還原預設</button>
+        <button class="pc-cancel" id="pcEditorCancel">取消</button>
+    </div>
+</div>
+
+<script>
+        const allData = [
+            // 105年度資料
+            {year:105, plant:"核三", unit:"#2", start:"2015-11-09", end:"2016-01-11", days:64, type:"核能", region:"南部"},
+            {year:105, plant:"中十", unit:"", start:"2015-12-16", end:"2016-02-06", days:53, type:"火力", region:"中部"},
+            {year:105, plant:"中七", unit:"", start:"2016-02-12", end:"2016-03-20", days:38, type:"火力", region:"中部"},
+            {year:105, plant:"中四", unit:"", start:"2016-03-21", end:"2016-05-16", days:57, type:"火力", region:"中部"},
+            {year:105, plant:"協一", unit:"", start:"2015-12-30", end:"2016-02-02", days:35, type:"火力", region:"北部"},
+            {year:105, plant:"協三", unit:"", start:"2016-02-21", end:"2016-04-06", days:46, type:"火力", region:"北部"},
+            {year:105, plant:"協四", unit:"", start:"2016-02-22", end:"2016-03-18", days:26, type:"火力", region:"北部"},
+            {year:105, plant:"興三", unit:"", start:"2016-01-27", end:"2016-03-09", days:43, type:"火力", region:"南部"},
+            {year:105, plant:"核二", unit:"#2", start:"2016-04-12", end:"2016-05-20", days:39, type:"核能", region:"北部"},
+            {year:105, plant:"核二", unit:"#1", start:"2016-11-30", end:"2017-06-30", days:213, type:"核能", region:"北部"},
+            {year:105, plant:"核三", unit:"#1", start:"2016-10-11", end:"2016-11-21", days:41, type:"核能", region:"南部"},
+            {year:105, plant:"大潭", unit:"CC#2 GT2-1", start:"2016-01-05", end:"2016-01-29", days:25, type:"複循環", region:"北部"},
+            {year:105, plant:"大潭", unit:"CC#5 GT5-1", start:"2015-11-12", end:"2016-01-31", days:81, type:"複循環", region:"北部"},
+            {year:105, plant:"大潭", unit:"CC#6 GT6-1", start:"2016-02-12", end:"2016-05-02", days:81, type:"複循環", region:"北部"},
+            {year:105, plant:"興達", unit:"CC#5", start:"2015-12-01", end:"2016-03-21", days:112, type:"複循環", region:"南部"},
+            {year:105, plant:"通霄", unit:"CC#4 GT41-43", start:"2016-03-20", end:"2016-05-31", days:73, type:"複循環", region:"中部"},
+            {year:105, plant:"明潭", unit:"#4", start:"2015-10-01", end:"2016-02-17", days:132, type:"水力", region:"中部"},
+            {year:105, plant:"銅門", unit:"#1-3", start:"2015-10-19", end:"2016-04-29", days:194, type:"水力", region:"中部"},
+            {year:105, plant:"天輪", unit:"#2", start:"2016-02-22", end:"2016-05-11", days:79, type:"水力", region:"中部"},
+            {year:105, plant:"和平", unit:"#1", start:"2016-01-09", end:"2016-02-12", days:35, type:"IPP", region:"北部"},
+            {year:105, plant:"和平", unit:"#2", start:"2016-02-07", end:"2016-03-12", days:35, type:"IPP", region:"北部"},
+            {year:105, plant:"麥寮", unit:"#2", start:"2015-12-25", end:"2016-02-29", days:57, type:"IPP", region:"南部"},
+            {year:105, plant:"麥寮", unit:"#1", start:"2016-10-22", end:"2017-01-04", days:75, type:"IPP", region:"南部"},
+            // 106年度資料
+            {year:106, plant:"大四", unit:"", start:"2017-01-05", end:"2017-01-13", days:9, type:"火力", region:"南部"},
+            {year:106, plant:"協和", unit:"#4", start:"2015-12-10", end:"2016-01-28", days:50, type:"火力", region:"北部"},
+            {year:106, plant:"中九", unit:"", start:"2016-12-19", end:"2017-01-23", days:36, type:"火力", region:"中部"},
+            {year:106, plant:"協二", unit:"", start:"2017-01-20", end:"2017-03-14", days:54, type:"火力", region:"北部"},
+            {year:106, plant:"中六", unit:"", start:"2017-01-24", end:"2017-03-21", days:57, type:"火力", region:"中部"},
+            {year:106, plant:"協一", unit:"", start:"2017-03-02", end:"2017-04-05", days:35, type:"火力", region:"北部"},
+            {year:106, plant:"大林", unit:"#5", start:"2017-03-03", end:"2017-04-30", days:59, type:"火力", region:"南部"},
+            {year:106, plant:"中一", unit:"", start:"2017-03-22", end:"2017-04-08", days:18, type:"火力", region:"中部"},
+            {year:106, plant:"核二", unit:"#2", start:"2017-04-07", end:"2017-06-15", days:70, type:"核能", region:"北部"},
+            {year:106, plant:"林口", unit:"#1", start:"2017-04-28", end:"2017-05-11", days:14, type:"火力", region:"北部"},
+            {year:106, plant:"林口", unit:"#2", start:"2017-05-03", end:"2017-05-19", days:17, type:"火力", region:"北部"},
+            {year:106, plant:"大潭", unit:"CC#5 GT5-1", start:"2017-01-11", end:"2017-02-14", days:35, type:"複循環", region:"北部"},
+            {year:106, plant:"大潭", unit:"CC#2 GT21", start:"2017-02-17", end:"2017-03-27", days:39, type:"複循環", region:"北部"},
+            {year:106, plant:"通霄", unit:"CC#6 GT61/62", start:"2017-02-21", end:"2017-05-05", days:74, type:"複循環", region:"中部"},
+            {year:106, plant:"興達", unit:"CC#1 GT11", start:"2017-09-19", end:"2017-12-24", days:97, type:"複循環", region:"南部"},
+            {year:106, plant:"南部", unit:"CC#4", start:"2017-03-18", end:"2017-04-19", days:33, type:"複循環", region:"南部"},
+            {year:106, plant:"圓山", unit:"#1", start:"2016-12-19", end:"2017-02-15", days:59, type:"水力", region:"中部"},
+            {year:106, plant:"明潭", unit:"#6", start:"2017-01-09", end:"2017-01-21", days:13, type:"水力", region:"中部"},
+            {year:106, plant:"明潭", unit:"#5", start:"2016-11-09", end:"2017-01-04", days:57, type:"水力", region:"中部"},
+            {year:106, plant:"麥寮", unit:"#3", start:"2017-01-29", end:"2017-02-05", days:6, type:"IPP", region:"南部"},
+            {year:106, plant:"國光", unit:"", start:"2017-01-27", end:"2017-02-10", days:15, type:"IPP", region:"北部"},
+            {year:106, plant:"和平", unit:"#2", start:"2017-01-13", end:"2017-02-01", days:20, type:"IPP", region:"北部"},
+            {year:106, plant:"和平", unit:"#1", start:"2017-01-26", end:"2017-02-02", days:27, type:"IPP", region:"北部"},
+            {year:106, plant:"星彰", unit:"", start:"2016-12-31", end:"2017-01-08", days:9, type:"IPP", region:"中部"},
+            {year:106, plant:"嘉惠", unit:"", start:"2017-01-21", end:"2017-02-19", days:30, type:"IPP", region:"中部"},
+            // 107年度資料
+            {year:107,plant:"協和",unit:"#1",start:"2017-12-22",end:"2018-01-30",days:40,type:"火力",region:"北部"},
+            {year:107,plant:"協和",unit:"#3",start:"2018-01-31",end:"2018-04-13",days:73,type:"火力",region:"北部"},
+            {year:107,plant:"協和",unit:"#4",start:"2017-12-04",end:"2018-02-01",days:60,type:"火力",region:"北部"},
+            {year:107,plant:"林口",unit:"#1",start:"2018-03-17",end:"2018-04-30",days:45,type:"火力",region:"北部"},
+            {year:107,plant:"林口",unit:"#2",start:"2018-05-01",end:"2018-06-30",days:14,type:"火力",region:"北部"},
+            {year:107,plant:"核二",unit:"#1",start:"2018-10-11",end:"2018-11-21",days:42,type:"核能",region:"北部"},
+            {year:107,plant:"核二",unit:"#2",start:"2018-06-17",end:"2019-02-28",days:256,type:"核能",region:"北部"},
+            {year:107,plant:"核三",unit:"#1",start:"2018-04-03",end:"2018-05-17",days:45,type:"核能",region:"南部"},
+            {year:107,plant:"核三",unit:"#2",start:"2017-12-03",end:"2018-01-16",days:45,type:"核能",region:"南部"},
+            {year:107,plant:"台中",unit:"#1 AQCS",start:"2017-09-01",end:"2018-01-31",days:153,type:"火力",region:"中部"},
+            {year:107,plant:"台中",unit:"#2",start:"2017-12-19",end:"2018-01-01",days:14,type:"火力",region:"中部"},
+            {year:107,plant:"台中",unit:"#2 AQCS",start:"2018-09-01",end:"2019-01-20",days:142,type:"火力",region:"中部"},
+            {year:107,plant:"台中",unit:"#3",start:"2017-12-29",end:"2018-05-30",days:153,type:"火力",region:"中部"},
+            {year:107,plant:"台中",unit:"#4",start:"2018-01-25",end:"2018-03-15",days:50,type:"火力",region:"中部"},
+            {year:107,plant:"台中",unit:"#7",start:"2018-03-13",end:"2018-05-20",days:69,type:"火力",region:"中部"},
+            {year:107,plant:"台中",unit:"#8",start:"2018-10-19",end:"2019-01-04",days:78,type:"火力",region:"中部"},
+            {year:107,plant:"台中",unit:"#9",start:"2017-12-24",end:"2018-02-27",days:66,type:"火力",region:"中部"},
+            {year:107,plant:"台中",unit:"#10",start:"2017-12-29",end:"2018-02-11",days:45,type:"火力",region:"中部"},
+            {year:107,plant:"大林",unit:"#5",start:"2018-06-10",end:"2018-06-30",days:21,type:"火力",region:"南部"},
+            {year:107,plant:"大林",unit:"#6",start:"2018-09-17",end:"2018-09-30",days:14,type:"火力",region:"南部"},
+            {year:107,plant:"興達",unit:"#1",start:"2018-04-02",end:"2018-06-06",days:65,type:"火力",region:"南部"},
+            {year:107,plant:"興達",unit:"#2",start:"2017-10-07",end:"2018-01-19",days:105,type:"火力",region:"南部"},
+            {year:107,plant:"興達",unit:"#3",start:"2018-01-10",end:"2018-04-07",days:88,type:"火力",region:"南部"},
+            {year:107,plant:"大潭",unit:"CC#1 GT11",start:"2017-10-27",end:"2018-01-04",days:70,type:"複循環",region:"北部"},
+            {year:107,plant:"大潭",unit:"CC#1 GT12",start:"2017-12-08",end:"2018-02-20",days:75,type:"複循環",region:"北部"},
+            {year:107,plant:"大潭",unit:"CC#1 GT13",start:"2017-10-01",end:"2017-12-13",days:74,type:"複循環",region:"北部"},
+            {year:107,plant:"大潭",unit:"CC#1 ST1",start:"2017-10-27",end:"2017-12-09",days:44,type:"複循環",region:"北部"},
+            {year:107,plant:"大潭",unit:"CC#3 GT31",start:"2017-12-29",end:"2018-02-27",days:61,type:"複循環",region:"北部"},
+            {year:107,plant:"大潭",unit:"CC#3 GT32",start:"2018-01-01",end:"2018-03-02",days:61,type:"複循環",region:"北部"},
+            {year:107,plant:"大潭",unit:"CC#3 ST3",start:"2018-01-01",end:"2018-01-30",days:30,type:"複循環",region:"北部"},
+            {year:107,plant:"大潭",unit:"CC#5 GT52",start:"2017-12-14",end:"2018-01-11",days:29,type:"複循環",region:"北部"},
+            {year:107,plant:"大潭",unit:"CC#5 GT51",start:"2017-12-17",end:"2018-01-14",days:29,type:"複循環",region:"北部"},
+            {year:107,plant:"大潭",unit:"CC#6 GT62",start:"2018-03-17",end:"2018-06-03",days:78,type:"複循環",region:"北部"},
+            {year:107,plant:"大潭",unit:"CC#6 GT61",start:"2018-03-10",end:"2018-05-30",days:82,type:"複循環",region:"北部"},
+            {year:107,plant:"大潭",unit:"CC#6 ST6",start:"2018-03-25",end:"2018-04-24",days:31,type:"複循環",region:"北部"},
+            {year:107,plant:"通霄",unit:"GT51/GT52",start:"2017-12-22",end:"2018-04-08",days:108,type:"複循環",region:"中部"},
+            {year:107,plant:"興達",unit:"CC#1 GT12",start:"2017-10-03",end:"2018-01-07",days:97,type:"複循環",region:"南部"},
+            {year:107,plant:"興達",unit:"CC#2 GT21",start:"2018-01-11",end:"2018-04-20",days:100,type:"複循環",region:"南部"},
+            {year:107,plant:"興達",unit:"CC#2 GT22",start:"2018-01-01",end:"2018-04-10",days:100,type:"複循環",region:"南部"},
+            {year:107,plant:"興達",unit:"CC#2 GT23",start:"2018-01-01",end:"2018-04-10",days:100,type:"複循環",region:"南部"},
+            {year:107,plant:"興達",unit:"CC#2 ST2",start:"2018-02-14",end:"2018-03-31",days:46,type:"複循環",region:"南部"},
+            {year:107,plant:"南火",unit:"GT11",start:"2017-12-18",end:"2018-03-17",days:90,type:"複循環",region:"南部"},
+            {year:107,plant:"南火",unit:"GT12",start:"2018-01-01",end:"2018-03-31",days:90,type:"複循環",region:"南部"},
+            {year:107,plant:"南火",unit:"ST1",start:"2018-01-01",end:"2018-02-07",days:38,type:"複循環",region:"南部"},
+            {year:107,plant:"明潭",unit:"#1",start:"2017-11-18",end:"2018-04-06",days:131,type:"水力",region:"中部"},
+            {year:107,plant:"明潭",unit:"#3",start:"2018-10-01",end:"2018-10-13",days:13,type:"水力",region:"中部"},
+            {year:107,plant:"明潭",unit:"#4",start:"2018-05-01",end:"2018-05-31",days:31,type:"水力",region:"中部"},
+            {year:107,plant:"明潭",unit:"#5",start:"2018-01-01",end:"2018-01-27",days:27,type:"水力",region:"中部"},
+            {year:107,plant:"明潭",unit:"#6",start:"2018-01-29",end:"2018-02-14",days:17,type:"水力",region:"中部"},
+            {year:107,plant:"德基",unit:"#2",start:"2018-01-30",end:"2018-03-24",days:54,type:"水力",region:"中部"},
+            {year:107,plant:"天埤",unit:"#2",start:"2018-02-26",end:"2018-03-21",days:24,type:"水力",region:"中部"},
+            {year:107,plant:"天埤",unit:"#4",start:"2018-01-17",end:"2018-02-09",days:24,type:"水力",region:"中部"},
+            {year:107,plant:"和平",unit:"#1",start:"2017-12-28",end:"2018-02-20",days:55,type:"IPP",region:"北部"},
+            {year:107,plant:"和平",unit:"#2",start:"2018-02-15",end:"2018-03-06",days:20,type:"IPP",region:"北部"},
+            {year:107,plant:"麥寮",unit:"#1",start:"2018-10-01",end:"2018-10-10",days:10,type:"IPP",region:"南部"},
+            {year:107,plant:"麥寮",unit:"#2",start:"2017-11-01",end:"2018-03-10",days:131,type:"IPP",region:"南部"},
+            {year:107,plant:"麥寮",unit:"#3",start:"2018-02-18",end:"2018-05-05",days:77,type:"IPP",region:"南部"},
+            {year:107,plant:"新桃",unit:"GT1A",start:"2018-03-07",end:"2018-04-15",days:40,type:"IPP",region:"北部"},
+            {year:107,plant:"國光",unit:"CC#1",start:"2017-11-10",end:"2017-12-27",days:48,type:"IPP",region:"北部"},
+            // 108年度資料
+            {year:108,plant:"協和",unit:"#4",start:"2019-10-12",end:"2020-02-11",days:65,type:"火力",region:"北部"},
+            {year:108,plant:"林口",unit:"#2",start:"2019-01-17",end:"2019-04-20",days:94,type:"火力",region:"北部"},
+            {year:108,plant:"核二",unit:"#2",start:"2019-04-11",end:"2019-05-25",days:45,type:"核能",region:"北部"},
+            {year:108,plant:"台中",unit:"#10",start:"2019-01-12",end:"2019-03-07",days:86,type:"火力",region:"中部"},
+            {year:108,plant:"台中",unit:"#2 AQCS",start:"2018-09-01",end:"2019-01-20",days:147,type:"火力",region:"中部"},
+            {year:108,plant:"台中",unit:"#3",start:"2019-01-01",end:"2019-05-30",days:153,type:"火力",region:"中部"},
+            {year:108,plant:"台中",unit:"#4",start:"2019-07-26",end:"2020-01-25",days:182,type:"火力",region:"中部"},
+            {year:108,plant:"台中",unit:"#5",start:"2019-10-17",end:"2020-01-09",days:85,type:"火力",region:"中部"},
+            {year:108,plant:"台中",unit:"#6",start:"2019-02-11",end:"2019-03-17",days:35,type:"火力",region:"中部"},
+            {year:108,plant:"台中",unit:"#7",start:"2019-09-01",end:"2019-10-16",days:46,type:"火力",region:"中部"},
+            {year:108,plant:"台中",unit:"#9",start:"2019-03-21",end:"2019-05-21",days:62,type:"火力",region:"中部"},
+            {year:108,plant:"大林",unit:"#1",start:"2019-11-21",end:"2020-02-21",days:93,type:"火力",region:"南部"},
+            {year:108,plant:"大林",unit:"#5",start:"2019-09-04",end:"2019-11-18",days:76,type:"火力",region:"南部"},
+            {year:108,plant:"大林",unit:"#6",start:"2019-03-18",end:"2019-06-30",days:96,type:"火力",region:"南部"},
+            {year:108,plant:"核三",unit:"#1",start:"2019-10-15",end:"2019-11-28",days:45,type:"核能",region:"南部"},
+            {year:108,plant:"核三",unit:"#2",start:"2019-12-03",end:"2020-01-11",days:40,type:"核能",region:"南部"},
+            {year:108,plant:"大潭",unit:"CC#5 GT51",start:"2019-01-12",end:"2019-02-14",days:34,type:"複循環",region:"北部"},
+            {year:108,plant:"大潭",unit:"CC#5 GT52",start:"2018-12-10",end:"2019-01-07",days:29,type:"複循環",region:"北部"},
+            {year:108,plant:"大潭",unit:"GT21",start:"2019-02-23",end:"2019-05-08",days:75,type:"複循環",region:"北部"},
+            {year:108,plant:"大潭",unit:"GT22",start:"2019-04-08",end:"2019-06-17",days:71,type:"複循環",region:"北部"},
+            {year:108,plant:"大潭",unit:"GT23",start:"2019-01-28",end:"2019-04-13",days:76,type:"複循環",region:"北部"},
+            {year:108,plant:"大潭",unit:"GT31",start:"2019-06-01",end:"2019-06-30",days:30,type:"複循環",region:"北部"},
+            {year:108,plant:"大潭",unit:"GT32",start:"2019-06-11",end:"2019-07-09",days:29,type:"複循環",region:"北部"},
+            {year:108,plant:"大潭",unit:"GT41",start:"2019-07-11",end:"2020-02-19",days:98,type:"複循環",region:"北部"},
+            {year:108,plant:"大潭",unit:"GT42",start:"2019-10-01",end:"2020-01-03",days:95,type:"複循環",region:"北部"},
+            {year:108,plant:"大潭",unit:"GT61",start:"2019-03-11",end:"2019-04-09",days:30,type:"複循環",region:"北部"},
+            {year:108,plant:"大潭",unit:"GT62",start:"2019-03-30",end:"2019-04-28",days:30,type:"複循環",region:"北部"},
+            {year:108,plant:"大潭",unit:"GT71",start:"2018-12-18",end:"2019-03-11",days:85,type:"複循環",region:"北部"},
+            {year:108,plant:"大潭",unit:"GT72",start:"2018-12-15",end:"2019-02-12",days:61,type:"複循環",region:"北部"},
+            {year:108,plant:"大潭",unit:"ST2",start:"2019-02-23",end:"2019-04-08",days:45,type:"複循環",region:"北部"},
+            {year:108,plant:"通霄",unit:"CC#4 GT41",start:"2019-05-20",end:"2019-07-31",days:73,type:"複循環",region:"中部"},
+            {year:108,plant:"通霄",unit:"CC#4 GT42",start:"2019-05-18",end:"2019-07-29",days:73,type:"複循環",region:"中部"},
+            {year:108,plant:"通霄",unit:"CC#4 GT43",start:"2019-05-16",end:"2019-07-27",days:73,type:"複循環",region:"中部"},
+            {year:108,plant:"通霄",unit:"CC#4 ST4",start:"2019-05-22",end:"2019-07-25",days:65,type:"複循環",region:"中部"},
+            {year:108,plant:"通霄",unit:"GT12",start:"2019-01-02",end:"2019-02-23",days:53,type:"複循環",region:"中部"},
+            {year:108,plant:"南部",unit:"CC#3 GT31",start:"2019-01-07",end:"2019-03-31",days:84,type:"複循環",region:"南部"},
+            {year:108,plant:"南部",unit:"CC#3 GT32",start:"2019-01-15",end:"2019-04-09",days:85,type:"複循環",region:"南部"},
+            {year:108,plant:"南部",unit:"CC#3 ST3",start:"2019-02-08",end:"2019-03-17",days:38,type:"複循環",region:"南部"},
+            {year:108,plant:"明潭",unit:"#1",start:"2019-04-29",end:"2019-05-11",days:13,type:"水力",region:"中部"},
+            {year:108,plant:"明潭",unit:"#2",start:"2019-02-28",end:"2019-03-26",days:27,type:"水力",region:"中部"},
+            {year:108,plant:"明潭",unit:"#3",start:"2019-10-21",end:"2020-03-13",days:145,type:"水力",region:"中部"},
+            {year:108,plant:"明潭",unit:"#5",start:"2019-09-02",end:"2019-09-28",days:27,type:"水力",region:"中部"},
+            {year:108,plant:"明潭",unit:"#6",start:"2019-07-03",end:"2019-08-16",days:45,type:"水力",region:"中部"},
+            {year:108,plant:"觀二",unit:"#1",start:"2018-12-23",end:"2019-01-06",days:15,type:"水力",region:"中部"},
+            {year:108,plant:"觀二",unit:"#3",start:"2018-11-21",end:"2019-05-20",days:151,type:"水力",region:"中部"},
+            {year:108,plant:"觀二",unit:"#4",start:"2019-01-21",end:"2019-03-24",days:63,type:"水力",region:"中部"},
+            {year:108,plant:"觀一",unit:"#1",start:"2019-10-21",end:"2020-02-24",days:127,type:"水力",region:"中部"},
+            {year:108,plant:"觀一",unit:"#2",start:"2019-11-04",end:"2019-12-13",days:40,type:"水力",region:"中部"},
+            {year:108,plant:"觀一",unit:"#4",start:"2019-09-02",end:"2019-10-11",days:40,type:"水力",region:"中部"},
+            {year:108,plant:"觀一",unit:"#5",start:"2019-06-03",end:"2019-07-22",days:50,type:"水力",region:"中部"},
+            {year:108,plant:"和平",unit:"#1",start:"2019-03-30",end:"2019-05-12",days:44,type:"IPP",region:"北部"},
+            {year:108,plant:"和平",unit:"#2",start:"2019-01-04",end:"2019-02-11",days:39,type:"IPP",region:"北部"},
+            {year:108,plant:"麥寮",unit:"#1",start:"2019-10-01",end:"2020-02-27",days:150,type:"IPP",region:"南部"},
+            {year:108,plant:"麥寮",unit:"#2",start:"2018-11-03",end:"2019-03-20",days:140,type:"IPP",region:"南部"},
+            {year:108,plant:"麥寮",unit:"#3",start:"2019-01-16",end:"2019-01-25",days:10,type:"IPP",region:"南部"},
+            // 109年度資料
+            {year:109,plant:"核三",unit:"#2",start:"2020-04-07",end:"2020-05-26",days:50,type:"核能",region:"南部"},
+            {year:109,plant:"核二",unit:"#2",start:"2020-11-20",end:"2021-01-04",days:46,type:"核能",region:"北部"},
+            {year:109,plant:"核二",unit:"#1",start:"2020-02-20",end:"2020-04-01",days:42,type:"核能",region:"北部"},
+            {year:109,plant:"協和",unit:"#3",start:"2020-05-01",end:"2020-06-30",days:61,type:"火力",region:"北部"},
+            {year:109,plant:"林口",unit:"#2",start:"2020-11-21",end:"2021-02-21",days:93,type:"火力",region:"北部"},
+            {year:109,plant:"林口",unit:"#1",start:"2020-03-26",end:"2020-06-22",days:89,type:"火力",region:"北部"},
+            {year:109,plant:"協和",unit:"#4",start:"2020-12-19",end:"2021-01-01",days:14,type:"火力",region:"北部"},
+            {year:109,plant:"大林",unit:"#2",start:"2020-02-22",end:"2020-05-20",days:89,type:"火力",region:"南部"},
+            {year:109,plant:"大林",unit:"#6",start:"2020-10-19",end:"2020-10-31",days:12,type:"火力",region:"南部"},
+            {year:109,plant:"台中",unit:"#1",start:"2020-11-18",end:"2021-01-01",days:45,type:"火力",region:"中部"},
+            {year:109,plant:"台中",unit:"#5",start:"2019-10-17",end:"2020-01-09",days:85,type:"火力",region:"中部"},
+            {year:109,plant:"台中",unit:"#8",start:"2020-09-01",end:"2020-11-17",days:78,type:"火力",region:"中部"},
+            {year:109,plant:"台中",unit:"#6",start:"2020-05-04",end:"2020-06-26",days:54,type:"火力",region:"中部"},
+            {year:109,plant:"台中",unit:"#2",start:"2020-10-19",end:"2020-11-07",days:20,type:"火力",region:"中部"},
+            {year:109,plant:"台中",unit:"#9",start:"2020-08-13",end:"2020-08-19",days:6,type:"火力",region:"中部"},
+            {year:109,plant:"興達",unit:"#1",start:"2020-10-01",end:"2020-12-08",days:69,type:"火力",region:"南部"},
+            {year:109,plant:"興達",unit:"#2",start:"2020-12-09",end:"2021-01-17",days:40,type:"火力",region:"南部"},
+            {year:109,plant:"興達",unit:"#3",start:"2020-10-01",end:"2020-11-30",days:61,type:"火力",region:"南部"},
+            {year:109,plant:"興達",unit:"#4",start:"2020-12-01",end:"2021-03-31",days:121,type:"火力",region:"南部"},
+            {year:109,plant:"大潭",unit:"GT32",start:"2020-11-10",end:"2021-02-28",days:111,type:"複循環",region:"北部"},
+            {year:109,plant:"大潭",unit:"GT31",start:"2020-11-20",end:"2021-03-10",days:111,type:"複循環",region:"北部"},
+            {year:109,plant:"大潭",unit:"ST3",start:"2020-12-03",end:"2021-01-15",days:44,type:"複循環",region:"北部"},
+            {year:109,plant:"大潭",unit:"GT51",start:"2020-11-18",end:"2021-02-18",days:93,type:"複循環",region:"北部"},
+            {year:109,plant:"大潭",unit:"GT52",start:"2020-11-28",end:"2021-02-28",days:93,type:"複循環",region:"北部"},
+            {year:109,plant:"大潭",unit:"ST5",start:"2020-11-28",end:"2021-01-10",days:44,type:"複循環",region:"北部"},
+            {year:109,plant:"大潭",unit:"GT61",start:"2020-03-16",end:"2020-06-01",days:78,type:"複循環",region:"北部"},
+            {year:109,plant:"大潭",unit:"GT62",start:"2020-03-19",end:"2020-06-04",days:78,type:"複循環",region:"北部"},
+            {year:109,plant:"大潭",unit:"ST6",start:"2020-04-08",end:"2020-05-29",days:52,type:"複循環",region:"北部"},
+            {year:109,plant:"大潭",unit:"GT72",start:"2020-06-01",end:"2020-09-09",days:101,type:"複循環",region:"北部"},
+            {year:109,plant:"大潭",unit:"GT11",start:"2020-01-09",end:"2020-01-19",days:11,type:"複循環",region:"北部"},
+            {year:109,plant:"大潭",unit:"GT42",start:"2020-06-23",end:"2020-07-22",days:30,type:"複循環",region:"北部"},
+            {year:109,plant:"大潭",unit:"GT23",start:"2020-03-16",end:"2020-03-25",days:10,type:"複循環",region:"北部"},
+            {year:109,plant:"大潭",unit:"GT12",start:"2020-03-01",end:"2020-03-10",days:10,type:"複循環",region:"北部"},
+            {year:109,plant:"通霄",unit:"GT11",start:"2020-08-22",end:"2020-10-17",days:57,type:"複循環",region:"中部"},
+            {year:109,plant:"通霄",unit:"GT21",start:"2020-02-12",end:"2020-04-17",days:66,type:"複循環",region:"中部"},
+            {year:109,plant:"通霄",unit:"GT22",start:"2020-02-15",end:"2020-04-20",days:66,type:"複循環",region:"中部"},
+            {year:109,plant:"通霄",unit:"ST2",start:"2020-02-15",end:"2020-04-08",days:54,type:"複循環",region:"中部"},
+            {year:109,plant:"通霄",unit:"GT12",start:"2020-12-01",end:"2021-01-25",days:56,type:"複循環",region:"中部"},
+            {year:109,plant:"興達",unit:"GT51",start:"2019-12-26",end:"2020-03-29",days:95,type:"複循環",region:"南部"},
+            {year:109,plant:"興達",unit:"GT52",start:"2020-01-05",end:"2020-04-09",days:96,type:"複循環",region:"南部"},
+            {year:109,plant:"興達",unit:"GT53",start:"2020-01-15",end:"2020-04-19",days:96,type:"複循環",region:"南部"},
+            {year:109,plant:"興達",unit:"ST5",start:"2020-01-15",end:"2020-03-04",days:50,type:"複循環",region:"南部"},
+            {year:109,plant:"興達",unit:"CC#1 GT11",start:"2020-12-11",end:"2021-02-20",days:72,type:"複循環",region:"南部"},
+            {year:109,plant:"興達",unit:"CC#1 GT12",start:"2020-12-19",end:"2021-03-05",days:77,type:"複循環",region:"南部"},
+            {year:109,plant:"興達",unit:"CC#1 GT13",start:"2020-12-27",end:"2021-03-13",days:77,type:"複循環",region:"南部"},
+            {year:109,plant:"興達",unit:"CC#1 ST1",start:"2020-12-27",end:"2021-02-09",days:45,type:"複循環",region:"南部"},
+            {year:109,plant:"南部",unit:"GT22",start:"2020-01-01",end:"2020-05-31",days:152,type:"複循環",region:"南部"},
+            {year:109,plant:"明潭",unit:"#2",start:"2020-02-17",end:"2020-02-26",days:10,type:"水力",region:"中部"},
+            {year:109,plant:"明潭",unit:"#1",start:"2020-11-02",end:"2021-01-28",days:88,type:"水力",region:"中部"},
+            {year:109,plant:"明潭",unit:"#2",start:"2020-10-12",end:"2021-03-20",days:161,type:"水力",region:"中部"},
+            {year:109,plant:"明潭",unit:"#4",start:"2020-05-25",end:"2020-07-15",days:52,type:"水力",region:"中部"},
+            {year:109,plant:"明潭",unit:"#6",start:"2020-09-14",end:"2020-09-27",days:14,type:"水力",region:"中部"},
+            {year:109,plant:"觀二",unit:"#2",start:"2020-01-06",end:"2020-01-17",days:12,type:"水力",region:"中部"},
+            {year:109,plant:"觀二",unit:"#1",start:"2020-11-16",end:"2020-11-27",days:12,type:"水力",region:"中部"},
+            {year:109,plant:"觀二",unit:"#4",start:"2020-04-01",end:"2020-04-20",days:20,type:"水力",region:"中部"},
+            {year:109,plant:"觀二",unit:"#3",start:"2020-02-13",end:"2020-02-26",days:14,type:"水力",region:"中部"},
+            {year:109,plant:"谷關",unit:"#4",start:"2020-02-03",end:"2020-04-11",days:69,type:"水力",region:"中部"},
+            {year:109,plant:"觀一",unit:"#2",start:"2020-02-24",end:"2020-04-10",days:46,type:"水力",region:"中部"},
+            {year:109,plant:"鉅工",unit:"#2",start:"2020-03-09",end:"2020-08-31",days:176,type:"水力",region:"中部"},
+            {year:109,plant:"卓蘭",unit:"#1",start:"2020-01-13",end:"2020-05-04",days:113,type:"水力",region:"中部"},
+            {year:109,plant:"天埤",unit:"#4",start:"2020-03-16",end:"2020-04-20",days:36,type:"水力",region:"中部"},
+            {year:109,plant:"天埤",unit:"#2",start:"2020-02-13",end:"2020-03-14",days:31,type:"水力",region:"中部"},
+            {year:109,plant:"圓山",unit:"#1",start:"2020-11-01",end:"2021-04-30",days:182,type:"水力",region:"中部"},
+            {year:109,plant:"觀一",unit:"#3",start:"2020-04-13",end:"2020-05-28",days:46,type:"水力",region:"中部"},
+            {year:109,plant:"觀一",unit:"#5",start:"2020-10-05",end:"2021-01-30",days:118,type:"水力",region:"中部"},
+            {year:109,plant:"馬鞍",unit:"#1#2",start:"2020-10-26",end:"2021-01-05",days:72,type:"水力",region:"中部"},
+            {year:109,plant:"和平",unit:"#1",start:"2020-01-24",end:"2020-02-14",days:22,type:"IPP",region:"北部"},
+            {year:109,plant:"和平",unit:"#2",start:"2020-01-27",end:"2020-01-29",days:3,type:"IPP",region:"北部"},
+            {year:109,plant:"和平",unit:"#2",start:"2020-11-21",end:"2020-12-18",days:28,type:"IPP",region:"北部"},
+            {year:109,plant:"麥寮",unit:"#2",start:"2020-12-01",end:"2020-12-20",days:20,type:"IPP",region:"南部"},
+            {year:109,plant:"麥寮",unit:"#3",start:"2020-10-09",end:"2020-10-18",days:10,type:"IPP",region:"南部"},
+            {year:109,plant:"新桃",unit:"GT1C",start:"2020-03-29",end:"2020-04-14",days:17,type:"IPP",region:"北部"},
+            {year:109,plant:"嘉惠",unit:"#1",start:"2020-01-24",end:"2020-02-01",days:9,type:"IPP",region:"中部"},
+            {year:109,plant:"國光",unit:"#1",start:"2020-10-31",end:"2020-11-11",days:12,type:"IPP",region:"北部"},
+            {year:109,plant:"豐德",unit:"CC#1",start:"2020-11-08",end:"2020-11-30",days:23,type:"IPP",region:"中部"},
+            {year:109,plant:"麥寮",unit:"#1",start:"2020-12-21",end:"2021-01-19",days:30,type:"IPP",region:"南部"},
+            // 110年度資料
+            {year:110,plant:"林口",unit:"#2",start:"2020-11-21",end:"2021-02-05",days:77,type:"火力",region:"北部"},
+            {year:110,plant:"核二",unit:"#2",start:"2020-11-21",end:"2021-01-04",days:45,type:"核能",region:"北部"},
+            {year:110,plant:"核二",unit:"#1",start:"2021-02-23",end:"2021-12-31",days:312,type:"核能",region:"北部"},
+            {year:110,plant:"核三",unit:"#1",start:"2021-04-07",end:"2021-05-20",days:44,type:"核能",region:"南部"},
+            {year:110,plant:"核三",unit:"#2",start:"2020-10-30",end:"2020-12-12",days:44,type:"核能",region:"南部"},
+            {year:110,plant:"台中",unit:"#4",start:"2020-12-20",end:"2021-02-07",days:50,type:"火力",region:"中部"},
+            {year:110,plant:"台中",unit:"#5",start:"2020-10-01",end:"2020-12-19",days:81,type:"火力",region:"中部"},
+            {year:110,plant:"台中",unit:"#6",start:"2021-05-24",end:"2021-09-14",days:114,type:"火力",region:"中部"},
+            {year:110,plant:"台中",unit:"#9",start:"2021-02-21",end:"2021-05-22",days:85,type:"火力",region:"中部"},
+            {year:110,plant:"台中",unit:"#10",start:"2021-01-02",end:"2021-02-18",days:47,type:"火力",region:"中部"},
+            {year:110,plant:"林口",unit:"#3",start:"2021-03-06",end:"2021-05-20",days:76,type:"火力",region:"北部"},
+            {year:110,plant:"協和",unit:"#4",start:"2021-05-08",end:"2021-06-17",days:41,type:"火力",region:"北部"},
+            {year:110,plant:"大林",unit:"#1",start:"2020-12-19",end:"2021-02-11",days:55,type:"火力",region:"南部"},
+            {year:110,plant:"大林",unit:"#5",start:"2021-01-26",end:"2021-03-04",days:37,type:"火力",region:"南部"},
+            {year:110,plant:"大潭",unit:"GT32",start:"2020-11-10",end:"2021-02-27",days:110,type:"複循環",region:"北部"},
+            {year:110,plant:"大潭",unit:"GT31",start:"2020-11-21",end:"2021-03-13",days:113,type:"複循環",region:"北部"},
+            {year:110,plant:"大潭",unit:"CC#5 GT51",start:"2021-01-30",end:"2021-05-03",days:94,type:"複循環",region:"北部"},
+            {year:110,plant:"大潭",unit:"CC#5 GT52",start:"2021-02-04",end:"2021-03-28",days:53,type:"複循環",region:"北部"},
+            {year:110,plant:"大潭",unit:"CC#4 GT41",start:"2020-12-11",end:"2021-03-02",days:82,type:"複循環",region:"北部"},
+            {year:110,plant:"大潭",unit:"CC#4 GT42",start:"2020-12-08",end:"2021-02-27",days:82,type:"複循環",region:"北部"},
+            {year:110,plant:"大潭",unit:"CC#6 GT62",start:"2021-04-11",end:"2021-06-28",days:79,type:"複循環",region:"北部"},
+            {year:110,plant:"大潭",unit:"CC#6 GT61",start:"2021-04-30",end:"2021-07-16",days:78,type:"複循環",region:"北部"},
+            {year:110,plant:"通霄",unit:"GT61",start:"2021-01-16",end:"2021-03-18",days:62,type:"複循環",region:"中部"},
+            {year:110,plant:"通霄",unit:"GT62",start:"2021-01-16",end:"2021-04-16",days:91,type:"複循環",region:"中部"},
+            {year:110,plant:"興達",unit:"CC#1 GT11",start:"2020-12-11",end:"2021-02-06",days:58,type:"複循環",region:"南部"},
+            {year:110,plant:"興達",unit:"CC#1 GT12",start:"2020-12-19",end:"2021-02-18",days:62,type:"複循環",region:"南部"},
+            {year:110,plant:"興達",unit:"CC#2 GT21",start:"2021-04-01",end:"2021-06-12",days:73,type:"複循環",region:"南部"},
+            {year:110,plant:"興達",unit:"CC#2 GT22",start:"2021-04-09",end:"2021-06-20",days:73,type:"複循環",region:"南部"},
+            {year:110,plant:"興達",unit:"CC#3 GT31",start:"2021-09-01",end:"2021-10-31",days:61,type:"複循環",region:"南部"},
+            {year:110,plant:"南部",unit:"GT21",start:"2021-01-17",end:"2021-04-03",days:77,type:"複循環",region:"南部"},
+            {year:110,plant:"南部",unit:"GT22",start:"2021-01-29",end:"2021-04-10",days:72,type:"複循環",region:"南部"},
+            {year:110,plant:"明潭",unit:"#1",start:"2020-11-02",end:"2021-01-27",days:87,type:"水力",region:"中部"},
+            {year:110,plant:"明潭",unit:"#2",start:"2020-10-12",end:"2021-03-15",days:155,type:"水力",region:"中部"},
+            {year:110,plant:"明潭",unit:"#5",start:"2021-08-21",end:"2021-09-30",days:41,type:"水力",region:"中部"},
+            {year:110,plant:"明潭",unit:"#6",start:"2021-03-20",end:"2021-05-14",days:56,type:"水力",region:"中部"},
+            {year:110,plant:"觀二",unit:"#1",start:"2020-11-27",end:"2021-04-22",days:177,type:"水力",region:"中部"},
+            {year:110,plant:"觀二",unit:"#2",start:"2020-12-09",end:"2021-01-27",days:50,type:"水力",region:"中部"},
+            {year:110,plant:"谷關",unit:"#3",start:"2021-03-22",end:"2021-05-28",days:68,type:"水力",region:"中部"},
+            {year:110,plant:"天輪",unit:"#3",start:"2021-03-08",end:"2021-04-22",days:46,type:"水力",region:"中部"},
+            {year:110,plant:"和平",unit:"#1",start:"2021-01-01",end:"2021-01-30",days:30,type:"IPP",region:"北部"},
+            {year:110,plant:"和平",unit:"#2",start:"2020-10-23",end:"2021-02-19",days:120,type:"IPP",region:"北部"},
+            {year:110,plant:"麥寮",unit:"#1",start:"2020-12-21",end:"2021-01-18",days:29,type:"IPP",region:"南部"},
+            {year:110,plant:"麥寮",unit:"#2",start:"2020-11-20",end:"2021-02-15",days:88,type:"IPP",region:"南部"},
+            {year:110,plant:"麥寮",unit:"#3",start:"2021-01-20",end:"2021-05-19",days:120,type:"IPP",region:"南部"},
+            {year:110,plant:"海湖",unit:"#2",start:"2021-03-28",end:"2021-05-09",days:43,type:"IPP",region:"北部"},
+            {year:110,plant:"嘉惠",unit:"#1",start:"2021-02-11",end:"2021-03-30",days:48,type:"IPP",region:"中部"},
+            // 111年度資料
+            {year:111,plant:"大潭",unit:"GT52",start:"2022-01-01",end:"2022-03-26",days:85,type:"複循環",region:"北部"},
+            {year:111,plant:"大潭",unit:"GT51",start:"2022-02-11",end:"2022-05-02",days:81,type:"複循環",region:"北部"},
+            {year:111,plant:"大潭",unit:"GT41",start:"2021-12-11",end:"2022-03-02",days:82,type:"複循環",region:"北部"},
+            {year:111,plant:"大潭",unit:"GT42",start:"2021-12-08",end:"2022-02-27",days:82,type:"複循環",region:"北部"},
+            {year:111,plant:"大潭",unit:"GT23",start:"2022-01-01",end:"2022-04-02",days:92,type:"複循環",region:"北部"},
+            {year:111,plant:"林口",unit:"#3",start:"2021-12-01",end:"2022-03-03",days:94,type:"火力",region:"北部"},
+            {year:111,plant:"林口",unit:"#1",start:"2022-04-01",end:"2022-04-20",days:20,type:"火力",region:"北部"},
+            {year:111,plant:"核二",unit:"#2",start:"2022-02-26",end:"2022-04-08",days:42,type:"核能",region:"北部"},
+            {year:111,plant:"台中",unit:"#4",start:"2021-12-20",end:"2022-02-07",days:50,type:"火力",region:"中部"},
+            {year:111,plant:"台中",unit:"#10",start:"2022-02-05",end:"2022-05-07",days:92,type:"火力",region:"中部"},
+            {year:111,plant:"台中",unit:"#1",start:"2022-05-17",end:"2022-07-13",days:58,type:"火力",region:"中部"},
+            {year:111,plant:"台中",unit:"#7",start:"2022-07-14",end:"2022-10-22",days:101,type:"火力",region:"中部"},
+            {year:111,plant:"台中",unit:"#8",start:"2022-09-22",end:"2022-12-06",days:76,type:"火力",region:"中部"},
+            {year:111,plant:"大林",unit:"#1",start:"2021-12-19",end:"2022-03-16",days:88,type:"火力",region:"南部"},
+            {year:111,plant:"核三",unit:"#1",start:"2021-11-19",end:"2022-01-08",days:51,type:"核能",region:"南部"},
+            {year:111,plant:"興達",unit:"CC#4",start:"2021-10-21",end:"2021-12-24",days:65,type:"複循環",region:"南部"},
+            {year:111,plant:"興達",unit:"GT21",start:"2021-11-17",end:"2022-01-28",days:73,type:"複循環",region:"南部"},
+            {year:111,plant:"南部",unit:"GT11",start:"2021-12-29",end:"2022-03-17",days:79,type:"複循環",region:"南部"},
+            {year:111,plant:"南部",unit:"GT12",start:"2022-01-01",end:"2022-03-20",days:79,type:"複循環",region:"南部"},
+            {year:111,plant:"和平",unit:"#2",start:"2021-10-23",end:"2022-02-19",days:119,type:"IPP",region:"北部"},
+            {year:111,plant:"麥寮",unit:"#1",start:"2021-11-04",end:"2022-01-19",days:77,type:"IPP",region:"南部"},
+            {year:111,plant:"明潭",unit:"#4",start:"2022-02-23",end:"2022-05-10",days:77,type:"水力",region:"中部"},
+            {year:111,plant:"觀二",unit:"#4",start:"2021-11-01",end:"2022-03-27",days:147,type:"水力",region:"中部"},
+            {year:111,plant:"觀二",unit:"#1",start:"2021-11-27",end:"2022-04-22",days:147,type:"水力",region:"中部"},
+            {year:111,plant:"天輪",unit:"#2",start:"2021-12-15",end:"2022-02-14",days:62,type:"水力",region:"中部"},
+            {year:111,plant:"馬鞍",unit:"#2",start:"2021-10-11",end:"2021-12-25",days:76,type:"水力",region:"中部"},
+            // 112年度資料
+            {year:112,plant:"和平",unit:"#2",start:"2023-01-21",end:"2023-02-19",days:30,type:"IPP",region:"北部"},
+            {year:112,plant:"和平",unit:"#1",start:"2022-12-10",end:"2023-03-03",days:84,type:"IPP",region:"北部"},
+            {year:112,plant:"林口",unit:"#2",start:"2022-11-01",end:"2023-01-27",days:88,type:"火力",region:"北部"},
+            {year:112,plant:"林口",unit:"#1",start:"2023-02-09",end:"2023-05-08",days:88,type:"火力",region:"北部"},
+            {year:112,plant:"協和",unit:"#4",start:"2023-01-13",end:"2023-03-18",days:65,type:"火力",region:"北部"},
+            {year:112,plant:"大潭",unit:"GT22",start:"2023-01-30",end:"2023-05-10",days:100,type:"複循環",region:"北部"},
+            {year:112,plant:"大潭",unit:"GT31",start:"2022-10-07",end:"2023-01-04",days:90,type:"複循環",region:"北部"},
+            {year:112,plant:"大潭",unit:"GT32",start:"2023-09-13",end:"2023-12-12",days:91,type:"複循環",region:"北部"},
+            {year:112,plant:"大潭",unit:"GT21",start:"2022-12-14",end:"2023-03-02",days:79,type:"複循環",region:"北部"},
+            {year:112,plant:"台中",unit:"#3",start:"2023-01-13",end:"2023-03-31",days:78,type:"火力",region:"中部"},
+            {year:112,plant:"台中",unit:"#4",start:"2022-11-21",end:"2023-01-20",days:61,type:"火力",region:"中部"},
+            {year:112,plant:"台中",unit:"#5 AQCS",start:"2023-08-12",end:"2024-04-07",days:239,type:"火力",region:"中部"},
+            {year:112,plant:"台中",unit:"#6 AQCS",start:"2023-10-01",end:"2024-05-27",days:209,type:"火力",region:"中部"},
+            {year:112,plant:"台中",unit:"#9",start:"2023-06-13",end:"2023-08-13",days:62,type:"火力",region:"中部"},
+            {year:112,plant:"通霄",unit:"GT21",start:"2023-01-05",end:"2023-03-06",days:61,type:"複循環",region:"中部"},
+            {year:112,plant:"通霄",unit:"GT22",start:"2023-01-10",end:"2023-03-11",days:61,type:"複循環",region:"中部"},
+            {year:112,plant:"通霄",unit:"GT11",start:"2023-04-25",end:"2023-07-13",days:80,type:"複循環",region:"中部"},
+            {year:112,plant:"通霄",unit:"GT12",start:"2023-04-28",end:"2023-07-16",days:80,type:"複循環",region:"中部"},
+            {year:112,plant:"大林",unit:"#1",start:"2022-12-11",end:"2023-03-12",days:91,type:"火力",region:"南部"},
+            {year:112,plant:"大林",unit:"#2",start:"2022-12-15",end:"2023-03-17",days:93,type:"火力",region:"南部"},
+            {year:112,plant:"大林",unit:"#5",start:"2023-01-01",end:"2023-04-01",days:91,type:"火力",region:"南部"},
+            {year:112,plant:"南部",unit:"GT31",start:"2023-04-01",end:"2023-06-13",days:74,type:"複循環",region:"南部"},
+            {year:112,plant:"南部",unit:"GT32",start:"2023-04-08",end:"2023-06-19",days:73,type:"複循環",region:"南部"},
+            {year:112,plant:"核三",unit:"#1",start:"2022-11-19",end:"2023-01-08",days:51,type:"核能",region:"南部"},
+            {year:112,plant:"核三",unit:"#2",start:"2023-03-25",end:"2023-05-11",days:48,type:"核能",region:"南部"},
+            {year:112,plant:"麥寮",unit:"#1",start:"2022-11-04",end:"2023-01-19",days:77,type:"IPP",region:"南部"},
+            {year:112,plant:"興達",unit:"GT43",start:"2022-11-06",end:"2023-01-09",days:65,type:"複循環",region:"南部"},
+            {year:112,plant:"觀二",unit:"#4",start:"2022-11-01",end:"2023-03-11",days:131,type:"水力",region:"中部"},
+            {year:112,plant:"明潭",unit:"#4",start:"2022-12-04",end:"2023-01-18",days:46,type:"水力",region:"中部"},
+            {year:112,plant:"明潭",unit:"#3",start:"2023-03-15",end:"2023-05-14",days:61,type:"水力",region:"中部"},
+            {year:112,plant:"嘉惠",unit:"#1",start:"2023-01-11",end:"2023-01-30",days:20,type:"IPP",region:"中部"},
+            {year:112,plant:"豐德",unit:"#2",start:"2023-11-19",end:"2023-12-12",days:24,type:"IPP",region:"中部"},
+            {year:112,plant:"星彰",unit:"",start:"2023-10-21",end:"2023-11-29",days:40,type:"IPP",region:"中部"},
+            // 113年度資料
+            {year:113,plant:"和平",unit:"#1",start:"2023-12-01",end:"2024-02-21",days:83,type:"IPP",region:"北部"},
+            {year:113,plant:"林口",unit:"#2",start:"2023-11-01",end:"2024-01-19",days:80,type:"火力",region:"北部"},
+            {year:113,plant:"大潭",unit:"GT71",start:"2024-03-02",end:"2024-05-06",days:65,type:"複循環",region:"北部"},
+            {year:113,plant:"大潭",unit:"GT72",start:"2024-02-23",end:"2024-04-28",days:66,type:"複循環",region:"北部"},
+            {year:113,plant:"大潭",unit:"GT61",start:"2024-03-09",end:"2024-05-04",days:56,type:"複循環",region:"北部"},
+            {year:113,plant:"大潭",unit:"GT62",start:"2024-03-05",end:"2024-04-30",days:56,type:"複循環",region:"北部"},
+            {year:113,plant:"大潭",unit:"GT31",start:"2023-10-07",end:"2024-01-04",days:89,type:"複循環",region:"北部"},
+            {year:113,plant:"台中",unit:"#9 AQCS",start:"2024-07-13",end:"2025-04-08",days:269,type:"火力",region:"中部"},
+            {year:113,plant:"台中",unit:"#1",start:"2024-06-03",end:"2024-07-18",days:45,type:"火力",region:"中部"},
+            {year:113,plant:"台中",unit:"#7",start:"2023-10-01",end:"2023-11-14",days:44,type:"火力",region:"中部"},
+            {year:113,plant:"台中",unit:"#8",start:"2023-11-04",end:"2023-12-14",days:40,type:"火力",region:"中部"},
+            {year:113,plant:"大林",unit:"#1",start:"2023-12-09",end:"2024-03-06",days:88,type:"火力",region:"南部"},
+            {year:113,plant:"大林",unit:"#6",start:"2024-03-30",end:"2024-05-29",days:60,type:"火力",region:"南部"},
+            {year:113,plant:"大林",unit:"#2",start:"2023-12-11",end:"2024-03-13",days:93,type:"火力",region:"南部"},
+            {year:113,plant:"興達",unit:"GT51",start:"2024-01-23",end:"2024-04-18",days:86,type:"複循環",region:"南部"},
+            {year:113,plant:"興達",unit:"GT52",start:"2024-01-24",end:"2024-04-20",days:87,type:"複循環",region:"南部"},
+            {year:113,plant:"興達",unit:"CC#1",start:"2023-12-01",end:"2024-03-16",days:106,type:"複循環",region:"南部"},
+            {year:113,plant:"核三",unit:"#2",start:"2023-10-21",end:"2023-11-30",days:40,type:"核能",region:"南部"},
+            {year:113,plant:"明潭",unit:"#5",start:"2024-01-15",end:"2024-04-09",days:85,type:"水力",region:"中部"},
+            {year:113,plant:"通霄",unit:"#2",start:"2024-03-30",end:"2024-06-19",days:81,type:"複循環",region:"中部"},
+            {year:113,plant:"通霄",unit:"GT11",start:"2023-12-24",end:"2024-01-23",days:30,type:"複循環",region:"中部"},
+            {year:113,plant:"通霄",unit:"GT12",start:"2023-12-27",end:"2024-01-26",days:30,type:"複循環",region:"中部"},
+            {year:113,plant:"南部",unit:"GT31",start:"2024-05-19",end:"2024-05-30",days:11,type:"複循環",region:"南部"},
+            {year:113,plant:"南部",unit:"GT32",start:"2024-05-28",end:"2024-06-08",days:11,type:"複循環",region:"南部"},
+            {year:113,plant:"和平",unit:"#2",start:"2024-04-04",end:"2024-05-12",days:38,type:"IPP",region:"北部"},
+            {year:113,plant:"嘉惠",unit:"2期",start:"2024-04-04",end:"2024-05-08",days:34,type:"IPP",region:"中部"},
+            {year:113,plant:"麥寮",unit:"#2",start:"2024-04-21",end:"2024-04-25",days:4,type:"IPP",region:"南部"},
+            {year:113,plant:"豐德",unit:"#1",start:"2023-11-10",end:"2023-12-19",days:39,type:"IPP",region:"中部"},
+            {year:113,plant:"星彰",unit:"",start:"2024-09-01",end:"2024-09-25",days:25,type:"IPP",region:"中部"},
+            // 114年度資料
+            {year:114,plant:"林口",unit:"#3",start:"2024-11-02",end:"2025-02-03",days:94,type:"火力",region:"北部"},
+            {year:114,plant:"林口",unit:"#1",start:"2025-02-26",end:"2025-05-25",days:88,type:"火力",region:"北部"},
+            {year:114,plant:"和平",unit:"#1",start:"2025-01-28",end:"2025-03-07",days:38,type:"IPP",region:"北部"},
+            {year:114,plant:"和平",unit:"#2",start:"2025-04-04",end:"2025-05-03",days:29,type:"IPP",region:"北部"},
+            {year:114,plant:"大潭",unit:"GT13",start:"2025-02-28",end:"2025-05-14",days:75,type:"複循環",region:"北部"},
+            {year:114,plant:"大潭",unit:"GT11",start:"2025-02-03",end:"2025-05-20",days:106,type:"複循環",region:"北部"},
+            {year:114,plant:"大潭",unit:"GT51",start:"2025-02-23",end:"2025-04-30",days:66,type:"複循環",region:"北部"},
+            {year:114,plant:"大潭",unit:"GT52",start:"2025-02-19",end:"2025-04-26",days:66,type:"複循環",region:"北部"},
+            {year:114,plant:"大潭",unit:"#8",start:"2024-11-30",end:"2025-03-24",days:115,type:"複循環",region:"北部"},
+            {year:114,plant:"大潭",unit:"ST2",start:"2025-04-23",end:"2025-06-06",days:44,type:"複循環",region:"北部"},
+            {year:114,plant:"大潭",unit:"GT22",start:"2025-04-24",end:"2025-05-08",days:14,type:"複循環",region:"北部"},
+            {year:114,plant:"台中",unit:"#9 AQCS",start:"2024-07-13",end:"2025-04-08",days:269,type:"火力",region:"中部"},
+            {year:114,plant:"台中",unit:"#10",start:"2025-01-01",end:"2025-09-27",days:300,type:"火力",region:"中部"},
+            {year:114,plant:"台中",unit:"#5",start:"2025-10-01",end:"2025-12-21",days:81,type:"火力",region:"中部"},
+            {year:114,plant:"台中",unit:"#3",start:"2025-01-14",end:"2025-03-20",days:65,type:"火力",region:"中部"},
+            {year:114,plant:"台中",unit:"#4",start:"2024-12-22",end:"2025-02-10",days:50,type:"火力",region:"中部"},
+            {year:114,plant:"大林",unit:"#1",start:"2024-12-05",end:"2025-03-07",days:92,type:"火力",region:"南部"},
+            {year:114,plant:"大林",unit:"#2",start:"2024-12-12",end:"2025-03-14",days:93,type:"火力",region:"南部"},
+            {year:114,plant:"興達",unit:"CC#2",start:"2025-03-17",end:"2025-06-30",days:105,type:"複循環",region:"南部"},
+            {year:114,plant:"興達",unit:"CC#3",start:"2025-11-01",end:"2026-02-14",days:105,type:"複循環",region:"南部"},
+            {year:114,plant:"興達",unit:"GT11",start:"2024-12-01",end:"2025-03-12",days:101,type:"複循環",region:"南部"},
+            {year:114,plant:"興達",unit:"GT12",start:"2024-12-01",end:"2025-03-14",days:103,type:"複循環",region:"南部"},
+            {year:114,plant:"興達",unit:"GT13",start:"2024-12-01",end:"2025-03-16",days:105,type:"複循環",region:"南部"},
+            {year:114,plant:"興達",unit:"ST1",start:"2024-12-16",end:"2025-02-21",days:67,type:"複循環",region:"南部"},
+            {year:114,plant:"通霄",unit:"GT21",start:"2025-05-27",end:"2025-07-01",days:35,type:"複循環",region:"中部"},
+            {year:114,plant:"通霄",unit:"GT22",start:"2025-05-27",end:"2025-07-04",days:38,type:"複循環",region:"中部"},
+            {year:114,plant:"通霄",unit:"#1",start:"2024-12-23",end:"2025-02-11",days:50,type:"複循環",region:"中部"},
+            {year:114,plant:"南部",unit:"GT21",start:"2025-02-08",end:"2025-05-14",days:95,type:"複循環",region:"南部"},
+            {year:114,plant:"南部",unit:"GT22",start:"2025-03-08",end:"2025-05-20",days:73,type:"複循環",region:"南部"},
+            {year:114,plant:"南部",unit:"ST2",start:"2025-03-08",end:"2025-05-14",days:67,type:"複循環",region:"南部"},
+            {year:114,plant:"明潭",unit:"#5",start:"2025-10-21",end:"2026-03-30",days:161,type:"水力",region:"中部"},
+            {year:114,plant:"明潭",unit:"#6",start:"2024-12-13",end:"2025-05-28",days:166,type:"水力",region:"中部"},
+            {year:114,plant:"麥寮",unit:"#3",start:"2025-05-01",end:"2025-05-03",days:2,type:"IPP",region:"南部"},
+            {year:114,plant:"嘉惠",unit:"GT11/GT12/ST1",start:"2025-01-26",end:"2025-02-24",days:29,type:"IPP",region:"中部"},
+            {year:114,plant:"豐德",unit:"#2",start:"2025-10-21",end:"2025-11-29",days:39,type:"IPP",region:"中部"},
+            {year:114,plant:"新桃",unit:"GT1B",start:"2024-12-31",end:"2025-01-30",days:30,type:"IPP",region:"北部"},
+            {year:114,plant:"星元",unit:"GT12",start:"2025-04-09",end:"2025-05-23",days:44,type:"IPP",region:"北部"},
+            {year:114,plant:"觀二",unit:"#2",start:"2025-02-26",end:"2025-05-10",days:72,type:"水力",region:"中部"},
+            {year:114,plant:"興達",unit:"#3",start:"2024-11-01",end:"2026-01-31",days:457,type:"火力",region:"南部"},
+            {year:114,plant:"興達",unit:"#4",start:"2025-10-01",end:"2025-11-29",days:59,type:"火力",region:"南部"},
+            // 115年度資料
+            {year:115,plant:"大潭",unit:"CC#1 GT11",start:"2025-10-01",end:"2026-02-28",days:150,type:"複循環",region:"北部"},
+            {year:115,plant:"大潭",unit:"CC#1 GT12",start:"2025-12-11",end:"2026-02-28",days:79,type:"複循環",region:"北部"},
+            {year:115,plant:"大潭",unit:"CC#1 ST1",start:"2025-12-11",end:"2026-02-28",days:79,type:"複循環",region:"北部"},
+            {year:115,plant:"大潭",unit:"CC#3 GT31",start:"2026-09-19",end:"2026-11-14",days:56,type:"複循環",region:"北部"},
+            {year:115,plant:"大潭",unit:"CC#3 GT32",start:"2026-09-01",end:"2026-11-02",days:62,type:"複循環",region:"北部"},
+            {year:115,plant:"大潭",unit:"CC#3 ST3",start:"2026-09-19",end:"2026-10-19",days:30,type:"複循環",region:"北部"},
+            {year:115,plant:"大潭",unit:"CC#8 GT81",start:"2025-11-30",end:"2026-03-09",days:99,type:"複循環",region:"北部"},
+            {year:115,plant:"大潭",unit:"CC#8 GT82",start:"2025-12-10",end:"2026-03-19",days:99,type:"複循環",region:"北部"},
+            {year:115,plant:"大潭",unit:"CC#8 ST8",start:"2025-11-30",end:"2026-03-28",days:118,type:"複循環",region:"北部"},
+            {year:115,plant:"大潭",unit:"CC#9 GT91",start:"2026-10-21",end:"2027-01-18",days:89,type:"複循環",region:"北部"},
+            {year:115,plant:"大潭",unit:"CC#9 GT92",start:"2026-10-31",end:"2027-01-28",days:89,type:"複循環",region:"北部"},
+            {year:115,plant:"大潭",unit:"CC#9 ST9",start:"2026-10-21",end:"2027-02-12",days:114,type:"複循環",region:"北部"},
+            {year:115,plant:"大潭",unit:"GT22",start:"2026-12-23",end:"2027-03-12",days:79,type:"複循環",region:"北部"},
+            {year:115,plant:"協和",unit:"#3",start:"2026-10-17",end:"2026-12-15",days:59,type:"火力",region:"北部"},
+            {year:115,plant:"林口",unit:"#2",start:"2025-10-31",end:"2026-03-02",days:122,type:"火力",region:"北部"},
+            {year:115,plant:"林口",unit:"#3",start:"2026-11-30",end:"2027-03-02",days:92,type:"火力",region:"北部"},
+            {year:115,plant:"和平",unit:"#2",start:"2026-02-16",end:"2026-03-17",days:29,type:"IPP",region:"北部"},
+            {year:115,plant:"和平",unit:"#1",start:"2026-04-11",end:"2026-05-25",days:44,type:"IPP",region:"北部"},
+            {year:115,plant:"核二",unit:"#1",start:"2026-05-01",end:"2026-08-31",days:122,type:"核能",region:"北部"},
+            {year:115,plant:"通霄",unit:"CC#3 GT31",start:"2026-03-15",end:"2026-04-15",days:31,type:"複循環",region:"中部"},
+            {year:115,plant:"通霄",unit:"CC#3 GT32",start:"2026-03-11",end:"2026-04-11",days:31,type:"複循環",region:"中部"},
+            {year:115,plant:"通霄",unit:"CC#3 ST3",start:"2026-03-15",end:"2026-04-11",days:27,type:"複循環",region:"中部"},
+            {year:115,plant:"通霄",unit:"CC#1 GT11",start:"2026-04-16",end:"2026-06-10",days:55,type:"複循環",region:"中部"},
+            {year:115,plant:"通霄",unit:"CC#1 GT12",start:"2026-04-19",end:"2026-06-10",days:52,type:"複循環",region:"中部"},
+            {year:115,plant:"通霄",unit:"CC#1 ST1",start:"2026-04-19",end:"2026-06-10",days:52,type:"複循環",region:"中部"},
+            {year:115,plant:"通霄",unit:"CC#6 GT61",start:"2026-09-24",end:"2026-12-08",days:75,type:"複循環",region:"中部"},
+            {year:115,plant:"通霄",unit:"CC#6 GT62",start:"2026-09-21",end:"2026-12-07",days:77,type:"複循環",region:"中部"},
+            {year:115,plant:"通霄",unit:"CC#6 ST6",start:"2026-09-24",end:"2026-12-07",days:74,type:"複循環",region:"中部"},
+            {year:115,plant:"通霄",unit:"CC#2 GT21",start:"2026-12-01",end:"2027-01-25",days:55,type:"複循環",region:"中部"},
+            {year:115,plant:"通霄",unit:"CC#2 GT22",start:"2026-12-04",end:"2027-01-28",days:55,type:"複循環",region:"中部"},
+            {year:115,plant:"通霄",unit:"CC#2 ST2",start:"2026-12-04",end:"2027-01-25",days:52,type:"複循環",region:"中部"},
+            {year:115,plant:"台中",unit:"GT#4",start:"2026-03-07",end:"2026-05-31",days:85,type:"火力",region:"中部"},
+            {year:115,plant:"台中",unit:"#8",start:"2026-02-02",end:"2026-03-29",days:55,type:"火力",region:"中部"},
+            {year:115,plant:"台中",unit:"#7",start:"2026-10-01",end:"2026-12-21",days:81,type:"火力",region:"中部"},
+            {year:115,plant:"台中",unit:"#6",start:"2026-03-26",end:"2026-06-15",days:81,type:"火力",region:"中部"},
+            {year:115,plant:"台中",unit:"#4",start:"2025-12-20",end:"2026-02-08",days:50,type:"火力",region:"中部"},
+            {year:115,plant:"台中",unit:"#9",start:"2026-12-22",end:"2027-03-17",days:85,type:"火力",region:"中部"},
+            {year:115,plant:"豐德",unit:"GT11",start:"2026-11-15",end:"2026-12-17",days:32,type:"IPP",region:"中部"},
+            {year:115,plant:"豐德",unit:"GT12",start:"2026-11-15",end:"2026-12-08",days:23,type:"IPP",region:"中部"},
+            {year:115,plant:"豐德",unit:"ST1",start:"2026-11-15",end:"2026-12-08",days:23,type:"IPP",region:"中部"},
+            {year:115,plant:"嘉惠",unit:"ST2",start:"2026-03-24",end:"2026-04-06",days:13,type:"IPP",region:"中部"},
+            {year:115,plant:"嘉惠",unit:"ST1",start:"2026-02-14",end:"2026-02-22",days:8,type:"IPP",region:"中部"},
+            {year:115,plant:"核三",unit:"#1",start:"2026-07-01",end:"2026-09-30",days:91,type:"核能",region:"南部"},
+            {year:115,plant:"核三",unit:"#2",start:"2026-07-01",end:"2026-09-30",days:91,type:"核能",region:"南部"},
+            {year:115,plant:"大林",unit:"#6",start:"2026-03-28",end:"2026-05-16",days:49,type:"火力",region:"南部"},
+            {year:115,plant:"大林",unit:"#1",start:"2025-12-30",end:"2026-03-23",days:83,type:"火力",region:"南部"},
+            {year:115,plant:"大林",unit:"#2",start:"2026-12-09",end:"2027-03-11",days:92,type:"火力",region:"南部"},
+            {year:115,plant:"南部",unit:"CC#4",start:"2026-10-09",end:"2026-12-22",days:74,type:"複循環",region:"南部"},
+            {year:115,plant:"南部",unit:"CC#1 GT11",start:"2026-01-18",end:"2026-04-17",days:89,type:"複循環",region:"南部"},
+            {year:115,plant:"南部",unit:"CC#1 GT12",start:"2026-02-15",end:"2026-05-04",days:78,type:"複循環",region:"南部"},
+            {year:115,plant:"南部",unit:"CC#1 ST1",start:"2026-02-15",end:"2026-04-09",days:53,type:"複循環",region:"南部"},
+            {year:115,plant:"興達",unit:"#4",start:"2025-10-01",end:"2026-03-09",days:159,type:"火力",region:"南部"},
+            {year:115,plant:"興達",unit:"#1",start:"2026-02-09",end:"2026-05-30",days:110,type:"火力",region:"南部"},
+            {year:115,plant:"興達",unit:"#2",start:"2026-02-09",end:"2026-03-31",days:50,type:"火力",region:"南部"},
+            {year:115,plant:"興達",unit:"CC#3 GT31",start:"2025-11-01",end:"2026-02-05",days:96,type:"複循環",region:"南部"},
+            {year:115,plant:"興達",unit:"CC#3 GT32",start:"2025-11-01",end:"2026-02-06",days:97,type:"複循環",region:"南部"},
+            {year:115,plant:"興達",unit:"CC#3 GT33",start:"2025-11-01",end:"2026-02-11",days:102,type:"複循環",region:"南部"},
+            {year:115,plant:"興達",unit:"CC#3 ST3",start:"2025-11-28",end:"2026-01-29",days:62,type:"複循環",region:"南部"},
+            {year:115,plant:"興達",unit:"CC#4 GT41",start:"2026-03-21",end:"2026-06-26",days:97,type:"複循環",region:"南部"},
+            {year:115,plant:"興達",unit:"CC#4 GT42",start:"2026-03-21",end:"2026-06-28",days:99,type:"複循環",region:"南部"},
+            {year:115,plant:"興達",unit:"CC#4 GT43",start:"2026-03-21",end:"2026-06-30",days:101,type:"複循環",region:"南部"},
+            {year:115,plant:"興達",unit:"CC#4 ST4",start:"2026-04-14",end:"2026-06-15",days:62,type:"複循環",region:"南部"},
+            // 116年度資料
+            {year:116,plant:"林口",unit:"#1",start:"2027-03-03",end:"2027-05-29",days:87,type:"火力",region:"北部"},
+            {year:116,plant:"林口",unit:"#2",start:"2027-12-01",end:"2028-03-04",days:94,type:"火力",region:"北部"},
+            {year:116,plant:"大潭",unit:"CC#2 GT21",start:"2027-10-01",end:"2027-12-17",days:77,type:"複循環",region:"北部"},
+            {year:116,plant:"大潭",unit:"CC#2 GT23",start:"2027-09-11",end:"2027-11-28",days:78,type:"複循環",region:"北部"},
+            {year:116,plant:"大潭",unit:"CC#2 ST2",start:"2027-10-01",end:"2027-11-14",days:44,type:"複循環",region:"北部"},
+            {year:116,plant:"大潭",unit:"CC#2 GT22",start:"2027-09-27",end:"2027-10-27",days:30,type:"複循環",region:"北部"},
+            {year:116,plant:"大潭",unit:"CC#2 ST2-MTR",start:"2027-09-11",end:"2027-12-17",days:97,type:"複循環",region:"北部"},
+            {year:116,plant:"大潭",unit:"CC#5 GT51",start:"2027-12-15",end:"2028-03-08",days:84,type:"複循環",region:"北部"},
+            {year:116,plant:"大潭",unit:"CC#5 GT52",start:"2027-12-11",end:"2028-03-04",days:84,type:"複循環",region:"北部"},
+            {year:116,plant:"大潭",unit:"CC#5 ST5",start:"2027-12-15",end:"2028-01-13",days:29,type:"複循環",region:"北部"},
+            {year:116,plant:"大潭",unit:"CC#6 GT61",start:"2027-01-16",end:"2027-04-11",days:85,type:"複循環",region:"北部"},
+            {year:116,plant:"大潭",unit:"CC#6 GT62",start:"2027-01-22",end:"2027-04-17",days:85,type:"複循環",region:"北部"},
+            {year:116,plant:"大潭",unit:"CC#6 ST6",start:"2027-01-22",end:"2027-03-11",days:48,type:"複循環",region:"北部"},
+            {year:116,plant:"大潭",unit:"CC#4 GT41",start:"2027-04-26",end:"2027-06-21",days:56,type:"複循環",region:"北部"},
+            {year:116,plant:"大潭",unit:"CC#4 GT42",start:"2027-04-22",end:"2027-06-17",days:56,type:"複循環",region:"北部"},
+            {year:116,plant:"大潭",unit:"CC#4 ST4",start:"2027-04-26",end:"2027-06-09",days:44,type:"複循環",region:"北部"},
+            {year:116,plant:"大潭",unit:"CC#7 GT71",start:"2027-03-28",end:"2027-05-27",days:60,type:"複循環",region:"北部"},
+            {year:116,plant:"大潭",unit:"CC#7 GT72",start:"2027-04-03",end:"2027-06-02",days:60,type:"複循環",region:"北部"},
+            {year:116,plant:"大潭",unit:"CC#7 ST7",start:"2027-04-03",end:"2027-05-26",days:53,type:"複循環",region:"北部"},
+            {year:116,plant:"協和",unit:"#4",start:"2027-10-02",end:"2027-12-15",days:74,type:"火力",region:"北部"},
+            {year:116,plant:"和平",unit:"#2",start:"2027-02-05",end:"2027-03-21",days:44,type:"IPP",region:"北部"},
+            {year:116,plant:"和平",unit:"#1",start:"2027-03-28",end:"2027-05-02",days:35,type:"IPP",region:"北部"},
+            {year:116,plant:"通霄",unit:"CC#3 GT31",start:"2027-02-28",end:"2027-04-25",days:56,type:"複循環",region:"中部"},
+            {year:116,plant:"通霄",unit:"CC#3 GT32",start:"2027-03-03",end:"2027-04-28",days:56,type:"複循環",region:"中部"},
+            {year:116,plant:"通霄",unit:"CC#3 ST3",start:"2027-03-03",end:"2027-04-25",days:53,type:"複循環",region:"中部"},
+            {year:116,plant:"通霄",unit:"CC#1 GT11",start:"2027-11-18",end:"2027-12-18",days:30,type:"複循環",region:"中部"},
+            {year:116,plant:"通霄",unit:"CC#1 GT12",start:"2027-11-20",end:"2027-12-20",days:30,type:"複循環",region:"中部"},
+            {year:116,plant:"通霄",unit:"CC#1 ST1",start:"2027-11-20",end:"2027-12-18",days:28,type:"複循環",region:"中部"},
+            {year:116,plant:"台中",unit:"新CC#1 GT11",start:"2027-11-01",end:"2028-02-08",days:99,type:"複循環",region:"中部"},
+            {year:116,plant:"台中",unit:"新CC#1 GT12",start:"2027-11-08",end:"2028-02-15",days:99,type:"複循環",region:"中部"},
+            {year:116,plant:"台中",unit:"新CC#1 ST1",start:"2027-11-08",end:"2028-02-15",days:99,type:"複循環",region:"中部"},
+            {year:116,plant:"台中",unit:"GT#3",start:"2027-01-01",end:"2027-03-31",days:89,type:"火力",region:"中部"},
+            {year:116,plant:"台中",unit:"#3",start:"2027-07-15",end:"2027-08-28",days:44,type:"火力",region:"中部"},
+            {year:116,plant:"台中",unit:"#4",start:"2027-08-29",end:"2027-10-29",days:61,type:"火力",region:"中部"},
+            {year:116,plant:"台中",unit:"#5",start:"2027-10-30",end:"2027-12-19",days:50,type:"火力",region:"中部"},
+            {year:116,plant:"台中",unit:"#10",start:"2027-03-18",end:"2027-05-08",days:51,type:"火力",region:"中部"},
+            {year:116,plant:"台中",unit:"#8",start:"2027-12-20",end:"2028-02-23",days:65,type:"火力",region:"中部"},
+            {year:116,plant:"星元",unit:"GT11",start:"2027-02-04",end:"2027-03-12",days:36,type:"IPP",region:"中部"},
+            {year:116,plant:"星元",unit:"ST",start:"2027-02-04",end:"2027-02-18",days:14,type:"IPP",region:"中部"},
+            {year:116,plant:"星彰",unit:"",start:"2027-10-11",end:"2027-11-03",days:23,type:"IPP",region:"中部"},
+            {year:116,plant:"嘉惠",unit:"ST2",start:"2027-02-07",end:"2027-02-13",days:6,type:"IPP",region:"中部"},
+            {year:116,plant:"嘉惠",unit:"ST1",start:"2027-02-05",end:"2027-02-13",days:8,type:"IPP",region:"中部"},
+            {year:116,plant:"豐德",unit:"#2",start:"2027-11-14",end:"2027-12-07",days:23,type:"IPP",region:"中部"},
+            {year:116,plant:"大林",unit:"#1",start:"2027-12-12",end:"2028-03-13",days:92,type:"火力",region:"南部"},
+            {year:116,plant:"南部",unit:"CC#3 GT31",start:"2027-03-13",end:"2027-06-12",days:91,type:"複循環",region:"南部"},
+            {year:116,plant:"南部",unit:"CC#3 GT32",start:"2027-03-18",end:"2027-06-17",days:91,type:"複循環",region:"南部"},
+            {year:116,plant:"南部",unit:"CC#3 ST3",start:"2027-03-18",end:"2027-04-25",days:38,type:"複循環",region:"南部"},
+            {year:116,plant:"興達",unit:"新CC#1 GT11",start:"2027-10-15",end:"2028-01-17",days:94,type:"複循環",region:"南部"},
+            {year:116,plant:"興達",unit:"新CC#1 GT12",start:"2027-10-22",end:"2028-01-24",days:94,type:"複循環",region:"南部"},
+            {year:116,plant:"興達",unit:"新CC#1 ST1",start:"2027-10-15",end:"2028-02-11",days:119,type:"複循環",region:"南部"},
+        ];
+
+        // Deduplicate: same plant+unit with start dates within 30 days -> keep newer year
+        function dedup(arr) {
+            const result = [];
+            const sorted = [...arr].sort((a, b) => b.year - a.year);
+            sorted.forEach(r => {
+                const st = new Date(r.start).getTime();
+                const dup = result.some(e => {
+                    if (e.plant !== r.plant) return false;
+                    const u1 = (e.unit||'').replace(/[#\s]/g,'').toLowerCase();
+                    const u2 = (r.unit||'').replace(/[#\s]/g,'').toLowerCase();
+                    if (u1 !== u2) return false;
+                    return Math.abs(st - new Date(e.start).getTime()) / 864e5 <= 30;
+                });
+                if (!dup) result.push(r);
+            });
+            return result;
+        }
+        const data = dedup(allData);
+
+        // 各時間粒度的最大日期範圍（天）
+        const MAX_RANGE_DAYS = { day: 180, week: 365, month: 730 };
+
+        const state = {
+            years: new Set(['115']),
+            regions: new Set(['北部','中部','南部']),
+            plants: new Set(),
+            gran: 'week',
+            dateFrom: null,
+            dateTo: null,
+            showNDT: false,
+            showET: false,
+            ndtOffStart: 10,   // NDT 開始：大修開始後第N天
+            ndtOffEnd: 14,     // NDT 結束：大修結束前第N天
+            etOffStart: 20,    // ET 開始：大修開始後第N天
+            etOffEnd: 14,      // ET 結束：大修結束前第N天
+            pGT: 0,
+            pST: 0,
+            pOther: 0,
+            pET: 0,
+            ndtOverrides: {},  // key: 'plant|unit|year' → {start: Date, end: Date}
+            etOverrides: {},
+            ndtPCOverrides: {},  // key: 'plant|unit|year' → number (per-bar personnel count)
+            etPCOverrides: {},  // key: 'plant|unit|year' → number
+            ndtSplits: {},  // key: 'plant|unit|year' → [{start:'YYYY-MM-DD', end:'YYYY-MM-DD', pc:number|null}]
+            etSplits: {},   // key: 'plant|unit|year' → [{start:'YYYY-MM-DD', end:'YYYY-MM-DD', pc:number|null}]
+            baseNDT: 15,
+            baseET: 6,
+            baseTotal: 21
+        };
+
+        function typeClass(t) {
+            return {'核能':'t-nuclear','火力':'t-thermal','複循環':'t-cc','水力':'t-hydro','IPP':'t-ipp'}[t]||'t-thermal';
+        }
+
+        // Classify unit: 'GT', 'ST', or 'other'
+        function unitCategory(unit) {
+            const u = (unit||'').toUpperCase();
+            if (/GT\d/.test(u) && !/ST\d/.test(u)) return 'GT';
+            if (/ST\d/.test(u)) return 'ST';
+            return 'other';
+        }
+
+        // Normalize plant and unit names across different year conventions
+        function normalize(r) {
+            let p = r.plant, u = r.unit || '';
+
+            // Plant abbreviation mapping (early years used short names)
+            const plantMap = {
+                '中一':['台中','#1'],'中二':['台中','#2'],'中三':['台中','#3'],'中四':['台中','#4'],
+                '中五':['台中','#5'],'中六':['台中','#6'],'中七':['台中','#7'],'中八':['台中','#8'],
+                '中九':['台中','#9'],'中十':['台中','#10'],
+                '協一':['協和','#1'],'協二':['協和','#2'],'協三':['協和','#3'],'協四':['協和','#4'],
+                '興一':['興達','#1'],'興二':['興達','#2'],'興三':['興達','#3'],'興四':['興達','#4'],
+                '大四':['大林','#4'],'大五':['大林','#5'],'大六':['大林','#6'],
+                '南火':['南部',''],
+            };
+            if (plantMap[p]) {
+                const [newP, newU] = plantMap[p];
+                p = newP;
+                if (newU && !u) u = newU;
+                else if (newU && u) u = newU + ' ' + u;
+            }
+
+            // Strip "CC#N " or "新CC#N " prefix from unit: "CC#1 GT11" → "GT11", "新CC#1 GT11" → "GT11"
+            u = u.replace(/^新?CC#\d+\s+/, '');
+            // Also handle "(2)" suffixes from early data
+            u = u.replace(/\(2\)/, '').trim();
+            // Normalize dashes: GT2-1 → GT21, GT5-1 → GT51
+            u = u.replace(/(GT|ST)(\d)-(\d)/g, '$1$2$3');
+            // Normalize "G4" style (台中) to "#4" if unit is just G + number
+            u = u.replace(/^G(\d+)$/, '#$1');
+
+            return { ...r, plant: p, unit: u };
+        }
+
+        // Apply normalization to all data
+        data.forEach((r, i) => { const n = normalize(r); r.plant = n.plant; r.unit = n.unit; });
+
+        function initUI() {
+            // Year checkboxes
+            const years = [...new Set(data.map(d=>d.year))].sort((a,b)=>a-b);
+            const yc = document.getElementById('yearCtrl');
+            years.forEach(y => {
+                const lbl = document.createElement('label');
+                lbl.className = 'chk';
+                lbl.innerHTML = `<input type="checkbox" ${state.years.has(String(y))?'checked':''}>${y}`;
+                lbl.querySelector('input').addEventListener('change', e => {
+                    if(e.target.checked) state.years.add(String(y));
+                    else state.years.delete(String(y));
+                    render();
+                });
+                yc.appendChild(lbl);
+            });
+
+            // Region
+            ['北','中','南'].forEach(r => {
+                document.getElementById('r'+r).addEventListener('change', e => {
+                    const full = r+'部';
+                    if(e.target.checked) state.regions.add(full);
+                    else state.regions.delete(full);
+                    render();
+                });
+            });
+            document.getElementById('rAll').addEventListener('change', e => {
+                ['北','中','南'].forEach(r => {
+                    document.getElementById('r'+r).checked = e.target.checked;
+                    const full = r+'部';
+                    if(e.target.checked) state.regions.add(full);
+                    else state.regions.delete(full);
+                });
+                render();
+            });
+
+            // Plants
+            const plants = [...new Set(data.map(d=>d.plant))].sort();
+            const pl = document.getElementById('plantList');
+            plants.forEach(p => {
+                const lbl = document.createElement('label');
+                lbl.className = 'chk';
+                lbl.innerHTML = `<input type="checkbox" data-plant="${p}">${p}`;
+                lbl.querySelector('input').addEventListener('change', e => {
+                    if(e.target.checked) state.plants.add(p);
+                    else state.plants.delete(p);
+                    document.getElementById('pAll').checked = state.plants.size === 0;
+                    render();
+                });
+                pl.appendChild(lbl);
+            });
+            document.getElementById('pAll').addEventListener('change', e => {
+                pl.querySelectorAll('input').forEach(cb => { cb.checked = false; });
+                state.plants.clear();
+                render();
+            });
+
+            // Granularity
+            document.querySelectorAll('#granCtrl .gbtn').forEach(btn => {
+                btn.addEventListener('click', e => {
+                    document.querySelectorAll('#granCtrl .gbtn').forEach(b=>b.classList.remove('active'));
+                    e.target.classList.add('active');
+                    state.gran = e.target.dataset.g;
+                    // 切換粒度時，調整滑桿上限並重新計算
+                    const slider = document.getElementById('daySlider');
+                    const sliderVal = document.getElementById('daySliderVal');
+                    const maxDays = MAX_RANGE_DAYS[state.gran] || 365;
+                    slider.max = maxDays;
+                    if (parseInt(slider.value) > maxDays) {
+                        slider.value = maxDays;
+                        sliderVal.textContent = maxDays + ' 天';
+                    }
+                    // 重新計算自訂日期範圍
+                    if (state.dateFrom) {
+                        state.dateTo = new Date(state.dateFrom.getTime() + parseInt(slider.value) * 864e5);
+                        const dtLabel = document.getElementById('dateToLabel');
+                        if (dtLabel) dtLabel.textContent = '→ ' + state.dateTo.toISOString().slice(0, 10);
+                    }
+                    render();
+                });
+            });
+        }
+
+        function filter() {
+            return data.filter(d => {
+                if (!state.years.has(String(d.year))) return false;
+                if (!state.regions.has(d.region)) return false;
+                if (state.plants.size > 0 && !state.plants.has(d.plant)) return false;
+                return true;
+            });
+        }
+
+        // Group filtered records by plant+unit into rows
+        function groupByPlantUnit(filtered) {
+            const map = new Map();
+            filtered.forEach(r => {
+                const key = r.plant + ' ' + (r.unit || '');
+                if (!map.has(key)) map.set(key, { label: key, plant: r.plant, type: r.type, region: r.region, records: [] });
+                map.get(key).records.push(r);
+            });
+            const groups = [...map.values()];
+            // Sort records within each group by start date first
+            groups.forEach(g => g.records.sort((a,b) => new Date(a.start) - new Date(b.start)));
+            // Sort groups by earliest start date (ascending)
+            groups.sort((a, b) => new Date(a.records[0].start) - new Date(b.records[0].start));
+            return groups;
+        }
+
+        function render() {
+            const filtered = filter();
+            const labelsEl = document.getElementById('ganttLabels');
+            const barsEl = document.getElementById('ganttBars');
+            const innerEl = document.getElementById('ganttInner');
+            const timeCells = document.getElementById('timeCells');
+
+            if (filtered.length === 0) {
+                labelsEl.innerHTML = '<div class="empty-msg">無資料</div>';
+                innerEl.innerHTML = '';
+                timeCells.innerHTML = '';
+                return;
+            }
+
+            let groups = groupByPlantUnit(filtered);
+
+            // Calculate date range: use custom dates if set, otherwise auto from data
+            let minD, maxD;
+            if (state.dateFrom && state.dateTo) {
+                minD = new Date(state.dateFrom);
+                maxD = new Date(state.dateTo);
+            } else {
+                let minT = Infinity, maxT = -Infinity;
+                filtered.forEach(d => {
+                    const s = new Date(d.start).getTime(), e = new Date(d.end).getTime();
+                    if (s < minT) minT = s;
+                    if (e > maxT) maxT = e;
+                });
+                minD = new Date(minT); maxD = new Date(maxT);
+                // Snap to granularity boundaries with padding
+                if (state.gran === 'day') {
+                    minD.setDate(minD.getDate() - 3);
+                    maxD.setDate(maxD.getDate() + 3);
+                } else if (state.gran === 'week') {
+                    minD.setDate(minD.getDate() - 7);
+                    maxD.setDate(maxD.getDate() + 7);
+                } else {
+                    minD = new Date(minD.getFullYear(), minD.getMonth(), 1);
+                    maxD = new Date(maxD.getFullYear(), maxD.getMonth() + 2, 1);
+                }
+            }
+
+            // 強制執行各粒度最大日期範圍限制
+            const maxDays = MAX_RANGE_DAYS[state.gran] || 365;
+            const rangeDays = Math.ceil((maxD - minD) / 864e5);
+            const rangeWarningEl = document.getElementById('rangeWarning');
+            if (rangeDays > maxDays) {
+                maxD = new Date(minD.getTime() + maxDays * 864e5);
+                if (rangeWarningEl) {
+                    const granLabel = {day:'日', week:'週', month:'月'}[state.gran];
+                    rangeWarningEl.textContent = `⚠ 時間粒度「${granLabel}」最大顯示範圍為 ${maxDays} 天，已自動截斷`;
+                    rangeWarningEl.style.display = '';
+                }
+            } else {
+                if (rangeWarningEl) rangeWarningEl.style.display = 'none';
+            }
+
+            // When custom date range + any inspection toggle is on,
+            // hide units that have NO inspection bars in the visible range
+            if (state.dateFrom && state.dateTo && (state.showNDT || state.showET)) {
+                const rangeS = minD.getTime(), rangeE = maxD.getTime();
+                groups = groups.filter(g => {
+                    return g.records.some(r => {
+                        const rS = new Date(r.start), rE = new Date(r.end);
+                        const dur = (rE - rS) / 864e5;
+                        if (dur <= 0) return false;
+                        const recKey = `${r.plant}|${r.unit||''}|${r.year}`;
+                        // Check NDT
+                        if (state.showNDT) {
+                            let ns, ne;
+                            const ndtOv = state.ndtOverrides[recKey];
+                            if (ndtOv) {
+                                ns = new Date(ndtOv.start); ne = new Date(ndtOv.end);
+                            } else {
+                                ns = new Date(rS); ns.setDate(ns.getDate() + state.ndtOffStart);
+                                ne = new Date(rE); ne.setDate(ne.getDate() - state.ndtOffEnd);
+                            }
+                            if (ne > ns && ne.getTime() > rangeS && ns.getTime() < rangeE) return true;
+                        }
+                        // Check ET
+                        if (state.showET) {
+                            const uN = (r.unit||'').toUpperCase();
+                            const isGT = /GT\d/.test(uN);
+                            const isST = /ST\d/.test(uN) && !isGT;
+                            const isETPlant = (r.plant === '林口' || r.plant === '協和');
+                            if (isST || (isETPlant && !isGT)) {
+                                let es, ee;
+                                const etOv = state.etOverrides[recKey];
+                                if (etOv) {
+                                    es = new Date(etOv.start); ee = new Date(etOv.end);
+                                } else {
+                                    es = new Date(rS); es.setDate(es.getDate() + state.etOffStart);
+                                    ee = new Date(rE); ee.setDate(ee.getDate() - state.etOffEnd);
+                                }
+                                if (ee > es && ee.getTime() > rangeS && es.getTime() < rangeE) return true;
+                            }
+                        }
+                        return false;
+                    });
+                });
+            }
+
+            const totalDays = Math.ceil((maxD - minD) / 864e5);
+            const barsWidth = barsEl.clientWidth - 8;
+            const pxPerDay = Math.max(barsWidth / totalDays, 0.2);
+            const fullW = totalDays * pxPerDay;
+
+            // === Time header based on granularity ===
+            let thHtml = '';
+            const timeSubRow = document.getElementById('timeSubRow');
+            const timeSubCells = document.getElementById('timeSubCells');
+            if (state.gran === 'day') {
+                // Top level: year/month
+                let cur = new Date(minD.getFullYear(), minD.getMonth(), 1);
+                while (cur <= maxD) {
+                    const next = new Date(cur.getFullYear(), cur.getMonth()+1, 1);
+                    const s = Math.max(0, (cur - minD) / 864e5);
+                    const e = Math.min(totalDays, (next - minD) / 864e5);
+                    const w = (e - s) * pxPerDay;
+                    const label = w > 35 ? cur.getFullYear()+'/'+(cur.getMonth()+1) : '';
+                    thHtml += `<div class="tcell" style="width:${w}px;font-weight:600">${label}</div>`;
+                    cur = next;
+                }
+                // Sub level: individual day numbers
+                let subHtml = '';
+                let d = new Date(minD);
+                for (let i = 0; i < totalDays; i++) {
+                    const dayNum = d.getDate();
+                    const isWeekend = (d.getDay() === 0 || d.getDay() === 6);
+                    const isMon1 = dayNum === 1;
+                    const bg = isMon1 ? '#e3f2fd' : (isWeekend ? '#fff8e1' : '');
+                    const fw = isMon1 ? 'font-weight:700;color:#1565c0;' : '';
+                    const label = pxPerDay >= 14 ? String(dayNum) : (dayNum % 5 === 1 || dayNum === 1 ? String(dayNum) : '');
+                    subHtml += `<div class="tcell" style="width:${pxPerDay}px;${fw}${bg ? 'background:'+bg+';' : ''}border-right:1px solid ${isMon1 ? '#90caf9' : '#f0f0f0'};">${label}</div>`;
+                    d.setDate(d.getDate() + 1);
+                }
+                timeSubRow.style.display = '';
+                timeSubCells.innerHTML = subHtml;
+            } else if (state.gran === 'week') {
+                // Top level: year/month
+                let cur = new Date(minD.getFullYear(), minD.getMonth(), 1);
+                while (cur <= maxD) {
+                    const next = new Date(cur.getFullYear(), cur.getMonth()+1, 1);
+                    const s = Math.max(0, (cur - minD) / 864e5);
+                    const e = Math.min(totalDays, (next - minD) / 864e5);
+                    const w = (e - s) * pxPerDay;
+                    const label = w > 35 ? cur.getFullYear()+'/'+(cur.getMonth()+1) : '';
+                    thHtml += `<div class="tcell" style="width:${w}px;font-weight:600">${label}</div>`;
+                    cur = next;
+                }
+                // Sub level: individual weeks (W1, W2...)
+                let subHtml = '';
+                // Find the first Monday on or after minD
+                let wk = new Date(minD);
+                const dayOfWeek = wk.getDay();
+                const daysToMon = dayOfWeek === 0 ? 1 : (dayOfWeek === 1 ? 0 : 8 - dayOfWeek);
+                if (daysToMon > 0) {
+                    // Partial first week before the first Monday
+                    const partialW = daysToMon * pxPerDay;
+                    if (partialW > 2) {
+                        subHtml += `<div class="tcell" style="width:${partialW}px;border-right:1px solid #e0e0e0;"></div>`;
+                    }
+                    wk.setDate(wk.getDate() + daysToMon);
+                }
+                while (wk < maxD) {
+                    const nextWk = new Date(wk); nextWk.setDate(nextWk.getDate() + 7);
+                    const wkEnd = nextWk > maxD ? maxD : nextWk;
+                    const wkDays = (wkEnd - wk) / 864e5;
+                    const w = wkDays * pxPerDay;
+                    // Label: M/D of Monday
+                    const label = w > 28 ? (wk.getMonth()+1)+'/'+wk.getDate() : '';
+                    const isMon1 = wk.getDate() <= 7 && wk.getDate() >= 1;
+                    subHtml += `<div class="tcell" style="width:${w}px;border-right:1px solid ${isMon1 ? '#90caf9' : '#e0e0e0'};">${label}</div>`;
+                    wk = nextWk;
+                }
+                timeSubRow.style.display = '';
+                timeSubCells.innerHTML = subHtml;
+            } else {
+                // Top level: year
+                let cur = new Date(minD.getFullYear(), 0, 1);
+                while (cur <= maxD) {
+                    const next = new Date(cur.getFullYear()+1, 0, 1);
+                    const s = Math.max(0, (cur - minD) / 864e5);
+                    const e = Math.min(totalDays, (next - minD) / 864e5);
+                    const w = (e - s) * pxPerDay;
+                    const label = w > 20 ? String(cur.getFullYear()) : '';
+                    thHtml += `<div class="tcell" style="width:${w}px;font-weight:600">${label}</div>`;
+                    cur = next;
+                }
+                // Sub level: individual months
+                let subHtml = '';
+                let mo = new Date(minD.getFullYear(), minD.getMonth(), 1);
+                // Partial first month if minD is not the 1st
+                if (minD.getDate() > 1) {
+                    const nextMo = new Date(mo.getFullYear(), mo.getMonth()+1, 1);
+                    const partialDays = (nextMo - minD) / 864e5;
+                    const w = partialDays * pxPerDay;
+                    const label = w > 20 ? (mo.getMonth()+1)+'月' : (w > 12 ? String(mo.getMonth()+1) : '');
+                    subHtml += `<div class="tcell" style="width:${w}px;border-right:1px solid #ccc;">${label}</div>`;
+                    mo = nextMo;
+                }
+                while (mo < maxD) {
+                    const nextMo = new Date(mo.getFullYear(), mo.getMonth()+1, 1);
+                    const moEnd = nextMo > maxD ? maxD : nextMo;
+                    const moDays = (moEnd - mo) / 864e5;
+                    const w = moDays * pxPerDay;
+                    const label = w > 20 ? (mo.getMonth()+1)+'月' : (w > 12 ? String(mo.getMonth()+1) : '');
+                    const isQ1 = mo.getMonth() % 3 === 0;
+                    subHtml += `<div class="tcell" style="width:${w}px;border-right:1px solid ${isQ1 ? '#90caf9' : '#ccc'};${isQ1 ? 'font-weight:600;' : ''}">${label}</div>`;
+                    mo = nextMo;
+                }
+                timeSubRow.style.display = '';
+                timeSubCells.innerHTML = subHtml;
+            }
+            timeCells.innerHTML = thHtml;
+
+            // === Grid lines based on granularity ===
+            const rowH = 22;
+            const totalH = groups.length * rowH;
+            let gridHtml = '';
+
+            if (state.gran === 'day') {
+                // Daily grid lines + monthly solid lines
+                let cur = new Date(minD);
+                cur.setDate(cur.getDate() + 1);
+                while (cur <= maxD) {
+                    const x = ((cur - minD) / 864e5) * pxPerDay;
+                    const isMon1 = cur.getDate() === 1;
+                    const isSun = cur.getDay() === 0;
+                    if (isMon1) {
+                        gridHtml += `<div class="grid-line" style="left:${x}px;height:${totalH}px;background:#90caf9;width:1.5px"></div>`;
+                    } else if (pxPerDay >= 8) {
+                        gridHtml += `<div class="grid-line" style="left:${x}px;height:${totalH}px;background:${isSun ? '#e0e0e0' : '#f0f0f0'}"></div>`;
+                    }
+                    cur.setDate(cur.getDate() + 1);
+                }
+            } else if (state.gran === 'week') {
+                // Weekly grid lines + monthly solid lines
+                let cur = new Date(minD);
+                const dow = cur.getDay();
+                const toMon = dow === 0 ? 1 : (dow === 1 ? 0 : 8 - dow);
+                cur.setDate(cur.getDate() + toMon);
+                while (cur <= maxD) {
+                    const x = ((cur - minD) / 864e5) * pxPerDay;
+                    const isMon1 = cur.getDate() <= 7;
+                    gridHtml += `<div class="grid-line" style="left:${x}px;height:${totalH}px;background:${isMon1 ? '#90caf9' : '#e8e8e8'}"></div>`;
+                    cur.setDate(cur.getDate() + 7);
+                }
+                // Monthly solid lines on top
+                let mCur = new Date(minD.getFullYear(), minD.getMonth()+1, 1);
+                while (mCur <= maxD) {
+                    const x = ((mCur - minD) / 864e5) * pxPerDay;
+                    gridHtml += `<div class="grid-line" style="left:${x}px;height:${totalH}px;background:#90caf9;width:1.5px"></div>`;
+                    mCur.setMonth(mCur.getMonth()+1);
+                }
+            } else {
+                // Monthly grid lines + yearly solid lines
+                let cur = new Date(minD.getFullYear(), minD.getMonth()+1, 1);
+                while (cur <= maxD) {
+                    const x = ((cur - minD) / 864e5) * pxPerDay;
+                    const isYear = cur.getMonth() === 0;
+                    const isQ = cur.getMonth() % 3 === 0;
+                    gridHtml += `<div class="grid-line" style="left:${x}px;height:${totalH}px;background:${isYear ? '#90caf9' : (isQ ? '#ccc' : '#e8e8e8')};${isYear ? 'width:1.5px' : ''}"></div>`;
+                    cur.setMonth(cur.getMonth()+1);
+                }
+            }
+
+            // === Labels and bars ===
+            let labHtml = '';
+            let barHtml = '';
+
+            groups.forEach((g, rowIdx) => {
+                labHtml += `<div class="glabel" title="${g.label}">${g.label}</div>`;
+
+                g.records.forEach(r => {
+                    const rStart = new Date(r.start), rEnd = new Date(r.end);
+                    const startOff = (rStart - minD) / 864e5;
+                    const dur = (rEnd - rStart) / 864e5;
+                    const left = startOff * pxPerDay;
+                    const w = Math.max(dur * pxPerDay, 2);
+                    const top = rowIdx * rowH + (rowH - 14) / 2;
+
+                    // NDT personnel count for this bar
+                    const cat = unitCategory(r.unit);
+                    const ndtPC = cat === 'GT' ? state.pGT : cat === 'ST' ? state.pST : state.pOther;
+                    // ET personnel for applicable units
+                    const uCheck = (r.unit||'').toUpperCase();
+                    const isGTu = /GT\d/.test(uCheck);
+                    const isSTu = /ST\d/.test(uCheck) && !isGTu;
+                    const isETp = (r.plant === '林口' || r.plant === '協和');
+                    const etPC = (isSTu || (isETp && !isGTu)) ? state.pET : 0;
+
+                    barHtml += `<div class="gbar ${typeClass(r.type)}"
+                        style="left:${left}px;width:${w}px;top:${top}px"
+                        data-p="${r.plant}" data-u="${r.unit||''}"
+                        data-s="${r.start}" data-e="${r.end}"
+                        data-d="${r.days}" data-t="${r.type}" data-y="${r.year}"
+                        data-cat="${cat}" data-ndt="${ndtPC}" data-et="${etPC}"></div>`;
+
+                    // NDT overlay bar
+                    if (state.showNDT && dur > 0) {
+                        const ndtKey = `${r.plant}|${r.unit||''}|${r.year}`;
+                        const ndtSplitsExist = ndtKey in state.ndtSplits;
+
+                        if (ndtSplitsExist) {
+                            // Render split segments
+                            const segments = state.ndtSplits[ndtKey];
+                            segments.forEach((seg, segIdx) => {
+                                const segStart = new Date(seg.start);
+                                const segEnd = new Date(seg.end);
+                                if (segEnd > segStart) {
+                                    const nL = ((segStart - minD) / 864e5) * pxPerDay;
+                                    const nW = Math.max(((segEnd - segStart) / 864e5) * pxPerDay, 2);
+                                    const nTop = rowIdx * rowH + 1;
+                                    const ndtDays = Math.round((segEnd - segStart) / 864e5);
+                                    const ns = segStart.toISOString().slice(0,10);
+                                    const ne = segEnd.toISOString().slice(0,10);
+                                    const segPC = seg.pc !== null ? seg.pc : ndtPC;
+                                    const pcOvCls = seg.pc !== null ? ' override' : '';
+                                    const pcBadge = segPC > 0 ? `<span class="bar-pc ndt${pcOvCls}">${segPC}</span>` : '';
+                                    barHtml += `<div class="gbar-ndt has-override" data-key="${ndtKey}" data-type="ndt" data-seg="${segIdx}"
+                                        style="left:${nL}px;width:${nW}px;top:${nTop}px"
+                                        data-p="${r.plant}" data-u="${r.unit||''}"
+                                        data-s="${ns}" data-e="${ne}" data-os="${r.start}" data-oe="${r.end}"
+                                        data-d="${ndtDays}" data-label="NDT" data-y="${r.year}"
+                                        data-pc="${segPC}" data-defpc="${ndtPC}">
+                                        ${pcBadge}
+                                        <div class="drag-handle left"></div>
+                                        <div class="drag-handle right"></div>
+                                    </div>`;
+                                }
+                            });
+                        } else {
+                            // Render single bar (original logic)
+                            let ndtStart, ndtEnd;
+                            const ndtOv = state.ndtOverrides[ndtKey];
+                            if (ndtOv) {
+                                ndtStart = new Date(ndtOv.start);
+                                ndtEnd = new Date(ndtOv.end);
+                            } else {
+                                ndtStart = new Date(rStart); ndtStart.setDate(ndtStart.getDate() + state.ndtOffStart);
+                                ndtEnd = new Date(rEnd); ndtEnd.setDate(ndtEnd.getDate() - state.ndtOffEnd);
+                            }
+                            if (ndtEnd > ndtStart) {
+                                const nL = ((ndtStart - minD) / 864e5) * pxPerDay;
+                                const nW = Math.max(((ndtEnd - ndtStart) / 864e5) * pxPerDay, 2);
+                                const nTop = rowIdx * rowH + 1;
+                                const ndtDays = Math.round((ndtEnd - ndtStart) / 864e5);
+                                const ns = ndtStart.toISOString().slice(0,10);
+                                const ne = ndtEnd.toISOString().slice(0,10);
+                                const hasOv = ndtOv ? ' has-override' : '';
+                                const ndtBarPC = (ndtKey in state.ndtPCOverrides) ? state.ndtPCOverrides[ndtKey] : ndtPC;
+                                const pcOvCls = (ndtKey in state.ndtPCOverrides) ? ' override' : '';
+                                const pcBadge = ndtBarPC > 0 ? `<span class="bar-pc ndt${pcOvCls}">${ndtBarPC}</span>` : '';
+                                barHtml += `<div class="gbar-ndt${hasOv}" data-key="${ndtKey}" data-type="ndt"
+                                    style="left:${nL}px;width:${nW}px;top:${nTop}px"
+                                    data-p="${r.plant}" data-u="${r.unit||''}"
+                                    data-s="${ns}" data-e="${ne}" data-os="${r.start}" data-oe="${r.end}"
+                                    data-d="${ndtDays}" data-label="NDT" data-y="${r.year}"
+                                    data-pc="${ndtBarPC}" data-defpc="${ndtPC}">
+                                    ${pcBadge}
+                                    <div class="drag-handle left"></div>
+                                    <div class="drag-handle right"></div>
+                                </div>`;
+                            }
+                        }
+                    }
+
+                    // ET overlay bar: ST units + 林口 + 協和 (GT excluded)
+                    if (state.showET && dur > 0) {
+                        const uNorm = (r.unit||'').toUpperCase();
+                        const isGT = /GT\d/.test(uNorm);
+                        const isST = /ST\d/.test(uNorm) && !isGT;
+                        const isETPlant = (r.plant === '林口' || r.plant === '協和');
+                        const needET = isST || (isETPlant && !isGT);
+                        if (needET) {
+                            const etKey = `${r.plant}|${r.unit||''}|${r.year}`;
+                            const etSplitsExist = etKey in state.etSplits;
+
+                            if (etSplitsExist) {
+                                // Render split segments
+                                const segments = state.etSplits[etKey];
+                                segments.forEach((seg, segIdx) => {
+                                    const segStart = new Date(seg.start);
+                                    const segEnd = new Date(seg.end);
+                                    if (segEnd > segStart) {
+                                        const eL = ((segStart - minD) / 864e5) * pxPerDay;
+                                        const eW = Math.max(((segEnd - segStart) / 864e5) * pxPerDay, 2);
+                                        const eTop = rowIdx * rowH + rowH - 9;
+                                        const etDays = Math.round((segEnd - segStart) / 864e5);
+                                        const es = segStart.toISOString().slice(0,10);
+                                        const ee = segEnd.toISOString().slice(0,10);
+                                        const defETPC = state.pET;
+                                        const segPC = seg.pc !== null ? seg.pc : defETPC;
+                                        const etPcOvCls = seg.pc !== null ? ' override' : '';
+                                        const etPcBadge = segPC > 0 ? `<span class="bar-pc et${etPcOvCls}">${segPC}</span>` : '';
+                                        barHtml += `<div class="gbar-et has-override" data-key="${etKey}" data-type="et" data-seg="${segIdx}"
+                                            style="left:${eL}px;width:${eW}px;top:${eTop}px"
+                                            data-p="${r.plant}" data-u="${r.unit||''}"
+                                            data-s="${es}" data-e="${ee}" data-os="${r.start}" data-oe="${r.end}"
+                                            data-d="${etDays}" data-label="ET" data-y="${r.year}"
+                                            data-pc="${segPC}" data-defpc="${defETPC}">
+                                            ${etPcBadge}
+                                            <div class="drag-handle left"></div>
+                                            <div class="drag-handle right"></div>
+                                        </div>`;
+                                    }
+                                });
+                            } else {
+                                // Render single bar (original logic)
+                                let etStart, etEnd;
+                                const etOv = state.etOverrides[etKey];
+                                if (etOv) {
+                                    etStart = new Date(etOv.start);
+                                    etEnd = new Date(etOv.end);
+                                } else {
+                                    etStart = new Date(rStart); etStart.setDate(etStart.getDate() + state.etOffStart);
+                                    etEnd = new Date(rEnd); etEnd.setDate(etEnd.getDate() - state.etOffEnd);
+                                }
+                                if (etEnd > etStart) {
+                                    const eL = ((etStart - minD) / 864e5) * pxPerDay;
+                                    const eW = Math.max(((etEnd - etStart) / 864e5) * pxPerDay, 2);
+                                    const eTop = rowIdx * rowH + rowH - 9;
+                                    const etDays = Math.round((etEnd - etStart) / 864e5);
+                                    const es = etStart.toISOString().slice(0,10);
+                                    const ee = etEnd.toISOString().slice(0,10);
+                                    const hasOv = etOv ? ' has-override' : '';
+                                    const defETPC = state.pET;
+                                    const etBarPC = (etKey in state.etPCOverrides) ? state.etPCOverrides[etKey] : defETPC;
+                                    const etPcOvCls = (etKey in state.etPCOverrides) ? ' override' : '';
+                                    const etPcBadge = etBarPC > 0 ? `<span class="bar-pc et${etPcOvCls}">${etBarPC}</span>` : '';
+                                    barHtml += `<div class="gbar-et${hasOv}" data-key="${etKey}" data-type="et"
+                                        style="left:${eL}px;width:${eW}px;top:${eTop}px"
+                                        data-p="${r.plant}" data-u="${r.unit||''}"
+                                        data-s="${es}" data-e="${ee}" data-os="${r.start}" data-oe="${r.end}"
+                                        data-d="${etDays}" data-label="ET" data-y="${r.year}"
+                                        data-pc="${etBarPC}" data-defpc="${defETPC}">
+                                        ${etPcBadge}
+                                        <div class="drag-handle left"></div>
+                                        <div class="drag-handle right"></div>
+                                    </div>`;
+                                }
+                            }
+                        }
+                    }
+                });
+            });
+
+            // === Personnel summary: 3 rows (NDT / ET / Total) ===
+            const hasNDTPersonnel = state.pGT > 0 || state.pST > 0 || state.pOther > 0 || Object.keys(state.ndtPCOverrides).length > 0;
+            const hasETPersonnel = state.pET > 0 || Object.keys(state.etPCOverrides).length > 0;
+            const hasPersonnel = hasNDTPersonnel || hasETPersonnel;
+            const singleRowH = 56;
+            const summaryRows = [];
+            if (hasNDTPersonnel) summaryRows.push('NDT');
+            if (hasETPersonnel) summaryRows.push('ET');
+            if (hasPersonnel) summaryRows.push('Total');
+            const summaryRowH = summaryRows.length * singleRowH;
+
+            if (hasPersonnel) {
+                // Accumulate daily NDT and ET person counts
+                const ndtDay = new Int32Array(totalDays + 1);
+                const etDay  = new Int32Array(totalDays + 1);
+
+                groups.forEach(g => {
+                    g.records.forEach(r => {
+                        const rS = new Date(r.start), rE = new Date(r.end);
+                        const dur = (rE - rS) / 864e5;
+                        if (dur <= 0) return;
+                        const recKey = `${r.plant}|${r.unit||''}|${r.year}`;
+
+                        if (hasNDTPersonnel) {
+                            const cat = unitCategory(r.unit);
+                            const defPC = cat === 'GT' ? state.pGT : cat === 'ST' ? state.pST : state.pOther;
+
+                            const ndtSplitsExist = recKey in state.ndtSplits;
+                            if (ndtSplitsExist) {
+                                // Accumulate from segments
+                                const segments = state.ndtSplits[recKey];
+                                segments.forEach(seg => {
+                                    const segPC = seg.pc !== null ? seg.pc : defPC;
+                                    if (segPC > 0) {
+                                        const segStart = new Date(seg.start);
+                                        const segEnd = new Date(seg.end);
+                                        if (segEnd > segStart) {
+                                            const d0 = Math.max(0, Math.floor((segStart - minD) / 864e5));
+                                            const d1 = Math.min(totalDays, Math.ceil((segEnd - minD) / 864e5));
+                                            for (let d = d0; d < d1; d++) ndtDay[d] += segPC;
+                                        }
+                                    }
+                                });
+                            } else {
+                                // Accumulate single bar
+                                const pc = (recKey in state.ndtPCOverrides) ? state.ndtPCOverrides[recKey] : defPC;
+                                if (pc > 0) {
+                                    let ns, ne;
+                                    const ndtOv = state.ndtOverrides[recKey];
+                                    if (ndtOv) {
+                                        ns = new Date(ndtOv.start);
+                                        ne = new Date(ndtOv.end);
+                                    } else {
+                                        ns = new Date(rS); ns.setDate(ns.getDate() + state.ndtOffStart);
+                                        ne = new Date(rE); ne.setDate(ne.getDate() - state.ndtOffEnd);
+                                    }
+                                    if (ne > ns) {
+                                        const d0 = Math.max(0, Math.floor((ns - minD) / 864e5));
+                                        const d1 = Math.min(totalDays, Math.ceil((ne - minD) / 864e5));
+                                        for (let d = d0; d < d1; d++) ndtDay[d] += pc;
+                                    }
+                                }
+                            }
+                        }
+
+                        if (hasETPersonnel) {
+                            const uN = (r.unit||'').toUpperCase();
+                            const isGT = /GT\d/.test(uN);
+                            const isST = /ST\d/.test(uN) && !isGT;
+                            const isETPlant = (r.plant === '林口' || r.plant === '協和');
+                            if (isST || (isETPlant && !isGT)) {
+                                const defETPC = state.pET;
+                                const etSplitsExist = recKey in state.etSplits;
+
+                                if (etSplitsExist) {
+                                    // Accumulate from segments
+                                    const segments = state.etSplits[recKey];
+                                    segments.forEach(seg => {
+                                        const segPC = seg.pc !== null ? seg.pc : defETPC;
+                                        if (segPC > 0) {
+                                            const segStart = new Date(seg.start);
+                                            const segEnd = new Date(seg.end);
+                                            if (segEnd > segStart) {
+                                                const d0 = Math.max(0, Math.floor((segStart - minD) / 864e5));
+                                                const d1 = Math.min(totalDays, Math.ceil((segEnd - minD) / 864e5));
+                                                for (let d = d0; d < d1; d++) etDay[d] += segPC;
+                                            }
+                                        }
+                                    });
+                                } else {
+                                    // Accumulate single bar
+                                    let es, ee;
+                                    const etOv = state.etOverrides[recKey];
+                                    if (etOv) {
+                                        es = new Date(etOv.start);
+                                        ee = new Date(etOv.end);
+                                    } else {
+                                        es = new Date(rS); es.setDate(es.getDate() + state.etOffStart);
+                                        ee = new Date(rE); ee.setDate(ee.getDate() - state.etOffEnd);
+                                    }
+                                    const etPC = (recKey in state.etPCOverrides) ? state.etPCOverrides[recKey] : defETPC;
+                                    if (ee > es && etPC > 0) {
+                                        const d0 = Math.max(0, Math.floor((es - minD) / 864e5));
+                                        const d1 = Math.min(totalDays, Math.ceil((ee - minD) / 864e5));
+                                        for (let d = d0; d < d1; d++) etDay[d] += etPC;
+                                    }
+                                }
+                            }
+                        }
+                    });
+                });
+
+                const totalDay = new Int32Array(totalDays + 1);
+                for (let d = 0; d < totalDays; d++) totalDay[d] = ndtDay[d] + etDay[d];
+
+                // Helper: draw one summary bar-chart row
+                function drawSummaryRow(dayArr, rowOffset, color, label, maxVal, baseline) {
+                    const chartH = singleRowH - 14;
+                    // Ensure maxVal covers baseline for proper scaling
+                    const effMax = (baseline > 0 && baseline > maxVal) ? baseline : maxVal;
+
+                    labHtml += `<div class="glabel" style="height:${singleRowH}px;font-weight:700;color:${color};border-top:2px solid ${color};flex-direction:column;justify-content:center;line-height:1.3">
+                        <span style="font-size:11px">${label}</span>
+                        ${baseline > 0 ? `<span style="font-size:9px;color:#d32f2f">基線:${baseline}</span>` : ''}</div>`;
+
+                    barHtml += `<div style="position:absolute;left:0;top:${rowOffset}px;width:${fullW}px;height:${singleRowH}px;border-top:2px solid ${color};background:${color}08;overflow:visible">`;
+
+                    // Y-axis max label
+                    barHtml += `<span style="position:absolute;right:3px;top:1px;font-size:8px;color:#999;z-index:5">${effMax}</span>`;
+
+                    // Baseline horizontal dashed line
+                    if (baseline > 0) {
+                        const blH = (baseline / effMax) * chartH;
+                        const blTop = singleRowH - blH;
+                        barHtml += `<div style="position:absolute;left:0;width:100%;top:${blTop}px;height:0;border-top:2px dashed #d32f2f;z-index:6;pointer-events:none"></div>`;
+                        barHtml += `<span style="position:absolute;left:4px;top:${blTop - 12}px;font-size:9px;font-weight:700;color:#d32f2f;z-index:7;pointer-events:none">${baseline}</span>`;
+                    }
+
+                    // Draw bar segments with numbers — color red if exceeding baseline
+                    let segS = 0, segV = dayArr[0];
+                    for (let d = 1; d <= totalDays; d++) {
+                        const v = d < totalDays ? dayArr[d] : -1;
+                        if (v !== segV) {
+                            if (segV > 0) {
+                                const x = segS * pxPerDay;
+                                const w = (d - segS) * pxPerDay;
+                                const h = Math.max((segV / effMax) * chartH, 2);
+                                const overBaseline = baseline > 0 && segV > baseline;
+                                const barColor = overBaseline ? '#d32f2f' : color;
+                                const barOpacity = overBaseline ? 0.75 : 0.6;
+                                barHtml += `<div style="position:absolute;left:${x}px;bottom:0;width:${Math.max(w,1)}px;height:${h}px;background:${barColor};opacity:${barOpacity};border-radius:1px 1px 0 0" title="${segV}人${overBaseline ? ' ⚠超過基線' : ''}"></div>`;
+                                if (w > 16) {
+                                    const lTop = singleRowH - h - 13;
+                                    const numColor = overBaseline ? '#d32f2f' : '#333';
+                                    barHtml += `<span style="position:absolute;left:${x}px;top:${Math.max(lTop,0)}px;width:${w}px;text-align:center;font-size:9px;font-weight:700;color:${numColor};pointer-events:none;z-index:5">${segV}</span>`;
+                                }
+                            }
+                            segS = d;
+                            segV = v;
+                        }
+                    }
+                    barHtml += `</div>`;
+                }
+
+                // Compute maxes for consistent scale per row
+                const maxNdt = hasNDTPersonnel ? (Math.max(...ndtDay) || 1) : 1;
+                const maxEt  = hasETPersonnel ? (Math.max(...etDay) || 1) : 1;
+                const maxTot = Math.max(...totalDay) || 1;
+
+                let curOffset = groups.length * rowH;
+
+                if (hasNDTPersonnel) {
+                    drawSummaryRow(ndtDay, curOffset, '#e65100', '檢測人力(NDT)', maxNdt, state.baseNDT);
+                    curOffset += singleRowH;
+                }
+                if (hasETPersonnel) {
+                    drawSummaryRow(etDay, curOffset, '#880e4f', '檢測人力(ET)', maxEt, state.baseET);
+                    curOffset += singleRowH;
+                }
+                if (hasPersonnel) {
+                    drawSummaryRow(totalDay, curOffset, '#1565c0', '檢測人力(Total)', maxTot, state.baseTotal);
+                }
+            }
+
+            labelsEl.innerHTML = labHtml;
+            innerEl.style.width = fullW + 'px';
+            innerEl.style.height = (totalH + summaryRowH) + 'px';
+            innerEl.innerHTML = gridHtml + barHtml;
+
+            // Show/hide reset button based on overrides
+            const hasOverrides = Object.keys(state.ndtOverrides).length > 0 || Object.keys(state.etOverrides).length > 0 || Object.keys(state.ndtPCOverrides).length > 0 || Object.keys(state.etPCOverrides).length > 0 || Object.keys(state.ndtSplits).length > 0 || Object.keys(state.etSplits).length > 0;
+            const rb = document.getElementById('resetOverrides');
+            if (rb) rb.style.display = hasOverrides ? '' : 'none';
+
+            // Tooltip — covers .gbar, .gbar-ndt, .gbar-et
+            const tip = document.getElementById('tip');
+            innerEl.querySelectorAll('.gbar').forEach(bar => {
+                bar.addEventListener('mouseenter', e => {
+                    const b = e.target.dataset;
+                    let pcParts = [];
+                    if (parseInt(b.ndt) > 0) pcParts.push(`NDT ${b.ndt}人`);
+                    if (parseInt(b.et) > 0) pcParts.push(`ET ${b.et}人`);
+                    const pcText = pcParts.length ? ' | ' + pcParts.join(', ') : '';
+                    tip.textContent = `${b.p} ${b.u} | ${b.s} ~ ${b.e} | ${b.d}天 | ${b.t} | ${b.y}年度${pcText}`;
+                    tip.classList.add('vis');
+                });
+                bar.addEventListener('mousemove', e => {
+                    tip.style.left = (e.clientX+12)+'px';
+                    tip.style.top = (e.clientY+12)+'px';
+                });
+                bar.addEventListener('mouseleave', () => tip.classList.remove('vis'));
+            });
+            innerEl.querySelectorAll('.gbar-ndt, .gbar-et').forEach(bar => {
+                bar.addEventListener('mouseenter', e => {
+                    const b = e.target.dataset;
+                    const pcInfo = parseInt(b.pc) > 0 ? ` | ${b.pc}人` : '';
+                    tip.textContent = `[${b.label}] ${b.p} ${b.u} | ${b.s} ~ ${b.e} | ${b.d}天 | ${b.y}年度${pcInfo} (右鍵修改人數, 中鍵分割)`;
+                    tip.classList.add('vis');
+                });
+                bar.addEventListener('mousemove', e => {
+                    tip.style.left = (e.clientX+12)+'px';
+                    tip.style.top = (e.clientY+12)+'px';
+                });
+                bar.addEventListener('mouseleave', () => tip.classList.remove('vis'));
+            });
+
+            // === Drag interaction for NDT/ET bars ===
+            const dragTip = document.getElementById('dragTip');
+            let dragState = null;
+
+            function pxToDate(px) {
+                const days = px / pxPerDay;
+                return new Date(minD.getTime() + days * 864e5);
+            }
+            function dateToPx(d) {
+                return ((d - minD) / 864e5) * pxPerDay;
+            }
+            function fmtD(d) { return d.toISOString().slice(0,10); }
+
+            innerEl.querySelectorAll('.gbar-ndt, .gbar-et').forEach(bar => {
+                // Left handle: resize start
+                const leftH = bar.querySelector('.drag-handle.left');
+                const rightH = bar.querySelector('.drag-handle.right');
+
+                function startDrag(e, mode) {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    const rect = barsEl.getBoundingClientRect();
+                    const barRect = bar.getBoundingClientRect();
+                    const origLeft = parseFloat(bar.style.left);
+                    const origWidth = parseFloat(bar.style.width);
+                    const startX = e.clientX;
+                    bar.classList.add('dragging');
+                    tip.classList.remove('vis');
+
+                    dragState = { bar, mode, rect, origLeft, origWidth, startX,
+                        key: bar.dataset.key, type: bar.dataset.type,
+                        ovhaulStart: bar.dataset.os, ovhaulEnd: bar.dataset.oe };
+
+                    document.addEventListener('mousemove', onDragMove);
+                    document.addEventListener('mouseup', onDragEnd);
+                }
+
+                leftH.addEventListener('mousedown', e => startDrag(e, 'left'));
+                rightH.addEventListener('mousedown', e => startDrag(e, 'right'));
+                bar.addEventListener('mousedown', e => {
+                    if (e.target.classList.contains('drag-handle')) return;
+                    startDrag(e, 'move');
+                });
+            });
+
+            function onDragMove(e) {
+                if (!dragState) return;
+                const { bar, mode, origLeft, origWidth, startX } = dragState;
+                const dx = e.clientX - startX;
+                let newLeft = origLeft, newWidth = origWidth;
+
+                if (mode === 'left') {
+                    newLeft = origLeft + dx;
+                    newWidth = origWidth - dx;
+                    if (newWidth < 4) { newWidth = 4; newLeft = origLeft + origWidth - 4; }
+                } else if (mode === 'right') {
+                    newWidth = origWidth + dx;
+                    if (newWidth < 4) newWidth = 4;
+                } else { // move
+                    newLeft = origLeft + dx;
+                }
+
+                bar.style.left = newLeft + 'px';
+                bar.style.width = newWidth + 'px';
+
+                // Show date tip
+                const newStart = pxToDate(newLeft);
+                const newEnd = pxToDate(newLeft + newWidth);
+                const days = Math.round((newEnd - newStart) / 864e5);
+                dragTip.textContent = `${fmtD(newStart)} ~ ${fmtD(newEnd)} (${days}天)`;
+                dragTip.style.left = (e.clientX + 14) + 'px';
+                dragTip.style.top = (e.clientY - 28) + 'px';
+                dragTip.classList.add('vis');
+            }
+
+            function onDragEnd(e) {
+                if (!dragState) return;
+                const { bar, key, type } = dragState;
+                bar.classList.remove('dragging');
+                dragTip.classList.remove('vis');
+                document.removeEventListener('mousemove', onDragMove);
+                document.removeEventListener('mouseup', onDragEnd);
+
+                // Calculate final dates
+                const finalLeft = parseFloat(bar.style.left);
+                const finalWidth = parseFloat(bar.style.width);
+                const newStart = pxToDate(finalLeft);
+                const newEnd = pxToDate(finalLeft + finalWidth);
+
+                if (newEnd > newStart) {
+                    // Snap to whole days
+                    newStart.setHours(0,0,0,0);
+                    newEnd.setHours(0,0,0,0);
+
+                    const segIdx = bar.dataset.seg !== undefined ? parseInt(bar.dataset.seg) : null;
+                    if (segIdx !== null) {
+                        // Save to segment
+                        const splits = type === 'ndt' ? state.ndtSplits : state.etSplits;
+                        if (key in splits && splits[key][segIdx]) {
+                            splits[key][segIdx].start = newStart.toISOString().slice(0,10);
+                            splits[key][segIdx].end = newEnd.toISOString().slice(0,10);
+                        }
+                    } else {
+                        // Save to override
+                        const overrides = type === 'ndt' ? state.ndtOverrides : state.etOverrides;
+                        overrides[key] = { start: newStart.toISOString().slice(0,10), end: newEnd.toISOString().slice(0,10) };
+                    }
+                }
+
+                dragState = null;
+                render(); // Re-render to update personnel summary
+            }
+
+            // === Right-click to edit personnel count ===
+            const pcEditor = document.getElementById('pcEditor');
+            const pcInput = document.getElementById('pcEditorInput');
+            const pcLabel = document.getElementById('pcEditorLabel');
+            let pcEditTarget = null;
+
+            function closePCEditor() {
+                pcEditor.classList.remove('vis');
+                pcEditTarget = null;
+            }
+
+            innerEl.querySelectorAll('.gbar-ndt, .gbar-et').forEach(bar => {
+                bar.addEventListener('contextmenu', e => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    const key = bar.dataset.key;
+                    const bType = bar.dataset.type;
+                    const curPC = parseInt(bar.dataset.pc) || 0;
+                    const defPC = parseInt(bar.dataset.defpc) || 0;
+                    const parts = key.split('|');
+                    const plantName = parts[0], unitName = parts[1], yr = bar.dataset.y;
+                    const segIdx = bar.dataset.seg !== undefined ? parseInt(bar.dataset.seg) : null;
+
+                    pcLabel.textContent = `[${bType.toUpperCase()}] ${plantName} ${unitName} (${yr}年) — 派工人數`;
+                    pcInput.value = curPC;
+                    pcEditTarget = { key, bType, defPC, segIdx };
+
+                    // Position near click
+                    pcEditor.style.left = (e.clientX + 10) + 'px';
+                    pcEditor.style.top = (e.clientY - 40) + 'px';
+                    pcEditor.classList.add('vis');
+                    pcInput.focus();
+                    pcInput.select();
+                });
+            });
+
+            document.getElementById('pcEditorOk').addEventListener('click', () => {
+                if (!pcEditTarget) return;
+                const val = parseInt(pcInput.value) || 0;
+                const { key, bType, segIdx } = pcEditTarget;
+
+                if (segIdx !== null) {
+                    // Save to segment
+                    const splits = bType === 'ndt' ? state.ndtSplits : state.etSplits;
+                    if (key in splits && splits[key][segIdx]) {
+                        splits[key][segIdx].pc = val;
+                    }
+                } else {
+                    // Save to override
+                    const overrides = bType === 'ndt' ? state.ndtPCOverrides : state.etPCOverrides;
+                    overrides[key] = val;
+                }
+                closePCEditor();
+                render();
+            });
+
+            document.getElementById('pcEditorReset').addEventListener('click', () => {
+                if (!pcEditTarget) return;
+                const { key, bType, segIdx } = pcEditTarget;
+
+                if (segIdx !== null) {
+                    // Reset segment pc to null (use default)
+                    const splits = bType === 'ndt' ? state.ndtSplits : state.etSplits;
+                    if (key in splits && splits[key][segIdx]) {
+                        splits[key][segIdx].pc = null;
+                    }
+                } else {
+                    // Delete override
+                    const overrides = bType === 'ndt' ? state.ndtPCOverrides : state.etPCOverrides;
+                    delete overrides[key];
+                }
+                closePCEditor();
+                render();
+            });
+
+            document.getElementById('pcEditorCancel').addEventListener('click', closePCEditor);
+
+            pcInput.addEventListener('keydown', e => {
+                if (e.key === 'Enter') document.getElementById('pcEditorOk').click();
+                if (e.key === 'Escape') closePCEditor();
+            });
+
+            // Close editor when clicking outside
+            document.addEventListener('mousedown', e => {
+                if (pcEditor.classList.contains('vis') && !pcEditor.contains(e.target) &&
+                    !e.target.closest('.gbar-ndt') && !e.target.closest('.gbar-et')) {
+                    closePCEditor();
+                }
+            });
+
+            // === Middle-click to split bar ===
+            innerEl.querySelectorAll('.gbar-ndt, .gbar-et').forEach(bar => {
+                bar.addEventListener('mousedown', e => {
+                    if (e.button !== 1) return; // Middle-click
+                    e.preventDefault();
+                    e.stopPropagation();
+
+                    const key = bar.dataset.key;
+                    const bType = bar.dataset.type;
+                    const segIdx = bar.dataset.seg !== undefined ? parseInt(bar.dataset.seg) : null;
+                    const rect = barsEl.getBoundingClientRect();
+                    const barRect = bar.getBoundingClientRect();
+                    const clickX = e.clientX - rect.left + barsEl.scrollLeft;
+
+                    // Calculate split date from click position
+                    const splitDate = pxToDate(clickX);
+                    splitDate.setHours(0,0,0,0);
+                    const splitDateStr = splitDate.toISOString().slice(0,10);
+
+                    // Get current bar's start and end
+                    const barStartStr = bar.dataset.s;
+                    const barEndStr = bar.dataset.e;
+                    const barStart = new Date(barStartStr);
+                    const barEnd = new Date(barEndStr);
+
+                    // Ensure split point is inside the bar with at least 1 day margin
+                    const oneDay = 864e5;
+                    if (splitDate <= new Date(barStart.getTime() + oneDay) || splitDate >= new Date(barEnd.getTime() - oneDay)) return;
+
+                    // Determine which split array to update
+                    const splits = bType === 'ndt' ? state.ndtSplits : state.etSplits;
+
+                    // If bar already has splits, split the affected segment
+                    if (key in splits) {
+                        const segments = splits[key];
+                        let splitSegIdx = -1;
+
+                        // Find which segment contains the split point
+                        for (let i = 0; i < segments.length; i++) {
+                            const seg = segments[i];
+                            const segStart = new Date(seg.start);
+                            const segEnd = new Date(seg.end);
+                            if (splitDate >= segStart && splitDate < segEnd) {
+                                splitSegIdx = i;
+                                break;
+                            }
+                        }
+
+                        if (splitSegIdx >= 0) {
+                            const seg = segments[splitSegIdx];
+                            const pc = seg.pc;
+                            // Replace segment with two new ones
+                            const newSeg1 = { start: seg.start, end: splitDateStr, pc };
+                            const newSeg2 = { start: splitDateStr, end: seg.end, pc };
+                            segments.splice(splitSegIdx, 1, newSeg1, newSeg2);
+                        }
+                    } else {
+                        // Create initial splits from the single bar
+                        const pc = parseInt(bar.dataset.pc) || null;
+                        const newSeg1 = { start: barStartStr, end: splitDateStr, pc };
+                        const newSeg2 = { start: splitDateStr, end: barEndStr, pc };
+                        splits[key] = [newSeg1, newSeg2];
+                    }
+
+                    render();
+                });
+            });
+
+            // Sync vertical scroll
+            barsEl.onscroll = () => { labelsEl.scrollTop = barsEl.scrollTop; };
+        }
+
+        initUI();
+
+        // Date range controls — 開始日期 + 顯示天數滑桿
+        const dateFromEl = document.getElementById('dateFrom');
+        const daySlider = document.getElementById('daySlider');
+        const daySliderVal = document.getElementById('daySliderVal');
+        const dateToLabel = document.getElementById('dateToLabel');
+
+        function clampSliderToGranularity() {
+            const maxDays = MAX_RANGE_DAYS[state.gran] || 365;
+            daySlider.max = maxDays;
+            if (parseInt(daySlider.value) > maxDays) daySlider.value = maxDays;
+        }
+
+        function updateDateRange() {
+            const f = dateFromEl.value;
+            const days = parseInt(daySlider.value);
+            daySliderVal.textContent = days + ' 天';
+            if (f) {
+                const fromD = new Date(f);
+                const toD = new Date(fromD.getTime() + days * 864e5);
+                dateToLabel.textContent = '→ ' + toD.toISOString().slice(0, 10);
+                state.dateFrom = fromD;
+                state.dateTo = toD;
+                render();
+            } else {
+                dateToLabel.textContent = '→ ';
+                if (state.dateFrom) {
+                    state.dateFrom = null;
+                    state.dateTo = null;
+                    render();
+                }
+            }
+        }
+
+        dateFromEl.addEventListener('change', updateDateRange);
+        daySlider.addEventListener('input', () => {
+            daySliderVal.textContent = daySlider.value + ' 天';
+            // 即時更新結束日期標籤（不觸發 render）
+            const f = dateFromEl.value;
+            if (f) {
+                const toD = new Date(new Date(f).getTime() + parseInt(daySlider.value) * 864e5);
+                dateToLabel.textContent = '→ ' + toD.toISOString().slice(0, 10);
+            }
+        });
+        daySlider.addEventListener('change', updateDateRange);
+
+        document.getElementById('dateReset').addEventListener('click', () => {
+            dateFromEl.value = '';
+            daySlider.value = 365;
+            clampSliderToGranularity();
+            daySliderVal.textContent = daySlider.value + ' 天';
+            dateToLabel.textContent = '→ ';
+            state.dateFrom = null;
+            state.dateTo = null;
+            render();
+        });
+
+        // 初始化滑桿上限
+        clampSliderToGranularity();
+
+        // NDT / ET toggles
+        document.getElementById('showNDT').addEventListener('change', e => {
+            state.showNDT = e.target.checked;
+            document.getElementById('legNDT').style.display = e.target.checked ? '' : 'none';
+            render();
+        });
+        document.getElementById('showET').addEventListener('change', e => {
+            state.showET = e.target.checked;
+            document.getElementById('legET').style.display = e.target.checked ? '' : 'none';
+            render();
+        });
+
+        // Reset overrides button
+        const resetBtn = document.getElementById('resetOverrides');
+        resetBtn.addEventListener('click', () => {
+            state.ndtOverrides = {};
+            state.etOverrides = {};
+            state.ndtPCOverrides = {};
+            state.etPCOverrides = {};
+            state.ndtSplits = {};
+            state.etSplits = {};
+            resetBtn.style.display = 'none';
+            render();
+        });
+
+        // NDT/ET offset inputs
+        ['ndtOffStart','ndtOffEnd','etOffStart','etOffEnd'].forEach(id => {
+            document.getElementById(id).addEventListener('change', e => {
+                state[id] = Math.max(0, parseInt(e.target.value) || 0);
+                render();
+            });
+        });
+
+        // Personnel count inputs
+        ['pGT','pST','pOther','pET'].forEach(id => {
+            document.getElementById(id).addEventListener('input', e => {
+                state[id] = parseInt(e.target.value) || 0;
+                render();
+            });
+        });
+
+        // Baseline inputs
+        ['baseNDT','baseET','baseTotal'].forEach(id => {
+            document.getElementById(id).addEventListener('input', e => {
+                state[id] = parseInt(e.target.value) || 0;
+                render();
+            });
+        });
+
+        // === A3 PDF Export ===
+        // Load dependencies dynamically
+        function loadScript(src) {
+            return new Promise((resolve, reject) => {
+                if (document.querySelector(`script[src="${src}"]`)) { resolve(); return; }
+                const s = document.createElement('script');
+                s.src = src; s.onload = resolve; s.onerror = reject;
+                document.head.appendChild(s);
+            });
+        }
+
+        document.getElementById('exportPdf').addEventListener('click', async () => {
+            const btn = document.getElementById('exportPdf');
+            btn.disabled = true; btn.textContent = '準備中...';
+
+            try {
+                await loadScript('https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js');
+                await loadScript('https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js');
+
+                btn.textContent = '擷取畫面...';
+
+                // Build a temporary off-screen clone for full-width capture
+                const chartW = document.querySelector('.chart-wrapper');
+                const sidebar = document.getElementById('sidebar');
+                const header = document.querySelector('.header');
+
+                // A3 landscape: 420mm x 297mm, at 96dpi ≈ 1587 x 1123px
+                // We'll render at 2x for quality: 3174 x 2246
+                const A3_W_MM = 420, A3_H_MM = 297;
+                const MARGIN_MM = 10;
+                const printW = A3_W_MM - MARGIN_MM * 2;  // usable mm
+                const printH = A3_H_MM - MARGIN_MM * 2;
+
+                // Create off-screen container
+                const offscreen = document.createElement('div');
+                offscreen.style.cssText = 'position:fixed;left:-9999px;top:0;width:3800px;background:#fff;z-index:-1;';
+                document.body.appendChild(offscreen);
+
+                // Clone header
+                const hClone = header.cloneNode(true);
+                hClone.style.boxShadow = 'none';
+                offscreen.appendChild(hClone);
+
+                // Build chart snapshot: labels + bars as a wide layout
+                const snapDiv = document.createElement('div');
+                snapDiv.style.cssText = 'display:flex;background:#fff;';
+
+                // Sidebar clone
+                const sbClone = sidebar.cloneNode(true);
+                sbClone.style.cssText = 'width:110px;min-width:110px;border-right:1px solid #ddd;background:#fafafa;padding:6px;flex-shrink:0;overflow:visible;';
+                snapDiv.appendChild(sbClone);
+
+                // Chart area clone
+                const chartClone = document.createElement('div');
+                chartClone.style.cssText = 'flex:1;display:flex;flex-direction:column;overflow:visible;';
+
+                // Time row clone
+                const timeRow = document.querySelector('.time-row');
+                const trClone = timeRow.cloneNode(true);
+                trClone.style.cssText = 'display:flex;height:28px;border-bottom:1px solid #ddd;background:#fafafa;overflow:visible;';
+                chartClone.appendChild(trClone);
+
+                // Gantt body clone
+                const ganttBody = document.createElement('div');
+                ganttBody.style.cssText = 'display:flex;overflow:visible;';
+
+                const labelsClone = document.getElementById('ganttLabels').cloneNode(true);
+                labelsClone.style.cssText = 'width:160px;min-width:160px;border-right:1px solid #ddd;overflow:visible;';
+                ganttBody.appendChild(labelsClone);
+
+                const barsClone = document.getElementById('ganttBars').cloneNode(true);
+                barsClone.style.cssText = 'flex:1;overflow:visible;';
+                const innerClone = barsClone.querySelector('.gantt-bars-inner') || barsClone.firstElementChild;
+                if (innerClone) innerClone.style.overflow = 'visible';
+                ganttBody.appendChild(barsClone);
+
+                chartClone.appendChild(ganttBody);
+                snapDiv.appendChild(chartClone);
+                offscreen.appendChild(snapDiv);
+
+                // Let browser layout the offscreen elements
+                await new Promise(r => setTimeout(r, 200));
+
+                btn.textContent = '產生PDF中...';
+
+                const canvas = await html2canvas(offscreen, {
+                    scale: 2,
+                    useCORS: true,
+                    backgroundColor: '#ffffff',
+                    logging: false,
+                    windowWidth: 3800
+                });
+
+                document.body.removeChild(offscreen);
+
+                // Create PDF
+                const { jsPDF } = window.jspdf;
+                const pdf = new jsPDF({ orientation: 'landscape', unit: 'mm', format: 'a3' });
+
+                // Calculate scaling to fit A3 landscape with margins
+                const imgW = canvas.width, imgH = canvas.height;
+                const ratio = Math.min(printW / imgW, printH / imgH);
+                const drawW = imgW * ratio, drawH = imgH * ratio;
+                // Center on page
+                const offX = MARGIN_MM + (printW - drawW) / 2;
+                const offY = MARGIN_MM;
+
+                const imgData = canvas.toDataURL('image/png');
+                pdf.addImage(imgData, 'PNG', offX, offY, drawW, drawH);
+
+                // Add footer
+                pdf.setFontSize(8);
+                pdf.setTextColor(150);
+                const now = new Date();
+                pdf.text(`台灣電力公司 大修排程甘特圖 — 匯出時間: ${now.getFullYear()}/${now.getMonth()+1}/${now.getDate()}`, MARGIN_MM, A3_H_MM - 5);
+
+                pdf.save('大修排程甘特圖_A3.pdf');
+                btn.textContent = '匯出 A3 PDF';
+                btn.disabled = false;
+
+            } catch (err) {
+                console.error('PDF export error:', err);
+                alert('PDF匯出失敗: ' + err.message);
+                btn.textContent = '匯出 A3 PDF';
+                btn.disabled = false;
+            }
+        });
+
+        render();
+        // Re-render on window resize to recalculate widths
+        window.addEventListener('resize', () => render());
+    </script>
+</body>
+</html>
