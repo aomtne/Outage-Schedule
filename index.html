@@ -220,7 +220,90 @@
         ::-webkit-scrollbar { width: 6px; height: 6px; }
         ::-webkit-scrollbar-track { background: #f1f1f1; }
         ::-webkit-scrollbar-thumb { background: #bbb; border-radius: 3px; }
+
+        /* ── 預覽/編輯 Modal ── */
+        #previewModal {
+            display:none; position:fixed; inset:0; z-index:9999;
+            background:rgba(0,0,0,.55); align-items:center; justify-content:center;
+        }
+        #previewModal.open { display:flex; }
+        #previewBox {
+            background:#fff; border-radius:8px; box-shadow:0 8px 32px rgba(0,0,0,.3);
+            width:92vw; max-width:1100px; max-height:88vh;
+            display:flex; flex-direction:column; overflow:hidden;
+        }
+        #previewBox h3 {
+            margin:0; padding:14px 18px; font-size:15px; font-weight:700;
+            background:#1a237e; color:#fff; border-radius:8px 8px 0 0;
+            display:flex; justify-content:space-between; align-items:center;
+        }
+        #previewBox h3 span { font-size:12px; font-weight:400; opacity:.8; }
+        #previewTableWrap { overflow:auto; flex:1; }
+        #previewTable { border-collapse:collapse; width:100%; font-size:12px; }
+        #previewTable th {
+            position:sticky; top:0; background:#283593; color:#fff;
+            padding:7px 8px; text-align:center; white-space:nowrap; z-index:2;
+        }
+        #previewTable td { border-bottom:1px solid #e0e0e0; padding:4px 6px; vertical-align:middle; }
+        #previewTable tr:hover td { background:#f5f7ff; }
+        #previewTable select, #previewTable input[type=text], #previewTable input[type=date] {
+            border:1px solid #c5cae9; border-radius:3px; padding:3px 5px;
+            font-size:12px; background:#fff; width:100%; box-sizing:border-box;
+        }
+        .del-row-btn {
+            background:#e53935; color:#fff; border:none; border-radius:3px;
+            cursor:pointer; padding:2px 7px; font-size:11px; white-space:nowrap;
+        }
+        #previewFooter {
+            padding:10px 16px; border-top:1px solid #e0e0e0;
+            display:flex; gap:8px; justify-content:flex-end; align-items:center;
+        }
+        #previewFooter .cnt { flex:1; font-size:12px; color:#555; }
+        .modal-btn { padding:7px 22px; border:none; border-radius:4px; cursor:pointer; font-size:13px; font-weight:600; }
+        .modal-btn.confirm { background:#1a237e; color:#fff; }
+        .modal-btn.cancel  { background:#eee; color:#333; }
+        .modal-btn:hover { opacity:.85; }
+        .add-row-btn { background:#388e3c; color:#fff; border:none; border-radius:3px;
+            cursor:pointer; padding:5px 12px; font-size:12px; }
+        /* ── 甘特圖點擊移除確認框 ── */
+        #removePopup {
+            display:none; position:fixed; z-index:10000;
+            background:#fff; border-radius:8px; box-shadow:0 4px 24px rgba(0,0,0,.3);
+            padding:18px 22px; min-width:260px; max-width:340px;
+        }
+        #removePopup.open { display:block; }
+        #removePopup h4 { margin:0 0 10px; font-size:14px; color:#b71c1c; }
+        #removePopup .info { font-size:12px; color:#333; line-height:1.7; margin-bottom:14px; }
+        #removePopup .info b { color:#1a237e; }
+        #removePopup .btns { display:flex; gap:8px; justify-content:flex-end; }
+        #removePopup .btns button { padding:6px 18px; border:none; border-radius:4px; cursor:pointer; font-size:13px; font-weight:600; }
+        #removeCancelBtn { background:#eee; color:#333; }
+        #removeConfirmBtn { background:#c62828; color:#fff; }
+        #removeCancelBtn:hover { background:#ddd; }
+        #removeConfirmBtn:hover { background:#b71c1c; }
+        #previewTable tr.dup-row td { background:#f3e5f5 !important; }
+        #previewTable tr.hidden-row { display:none; }
+        #filterBar {
+            display:flex; gap:8px; align-items:center; flex-wrap:wrap;
+            padding:8px 14px; background:#f5f5f5; border-bottom:1px solid #e0e0e0;
+            font-size:12px;
+        }
+        #filterBar label { color:#555; white-space:nowrap; }
+        #filterBar select, #filterBar input[type=text] {
+            border:1px solid #c5cae9; border-radius:3px; padding:4px 7px;
+            font-size:12px; background:#fff;
+        }
+        #filterBar input[type=text] { width:120px; }
+        #clearFilter { background:#e0e0e0; border:none; border-radius:3px;
+            padding:4px 10px; cursor:pointer; font-size:12px; }
+        #clearFilter:hover { background:#bdbdbd; }
+        #filterCount { color:#888; font-size:11px; margin-left:4px; }
+        #previewTable th.sortable { cursor:pointer; user-select:none; }
+        #previewTable th.sortable:hover { background:#3949ab; }
+        #previewTable th.sort-asc .sort-icon::after  { content:' ▲'; font-size:10px; }
+        #previewTable th.sort-desc .sort-icon::after { content:' ▼'; font-size:10px; }
     </style>
+
 </head>
 <body>
 <div class="app">
@@ -264,7 +347,7 @@
                 <div class="ctrl-label">檢測排程</div>
                 <div class="ctrl-options">
                     <label class="chk"><input type="checkbox" id="showNDT">NDT</label>
-                    <label class="chk"><input type="checkbox" id="showET">ET (僅ST)</label>
+                    <label class="chk"><input type="checkbox" id="showET">ET (ST/火力)</label>
                     <button id="resetOverrides" style="font-size:11px;padding:1px 6px;cursor:pointer;background:#fff3e0;border:1px solid #e65100;border-radius:3px;color:#e65100;display:none" title="重設所有手動調整的NDT/ET排程">重設排程</button>
                 </div>
             </div>
@@ -310,6 +393,8 @@
                 <button class="export-btn" id="exportXlsx" style="background:#1976d2;margin-left:6px;">匯出 Excel</button>
                 <button class="export-btn" id="importXlsxBtn" style="background:#388e3c;margin-left:6px;">載入 Excel</button>
                 <input type="file" id="importXlsxFile" accept=".xlsx,.xls" style="display:none">
+                <button class="export-btn" id="importPdfBtn" style="background:#6a1b9a;margin-left:6px;">匯入 PPTX</button>
+                <input type="file" id="importPdfFile" accept=".pptx" style="display:none">
             </div>
         </div>
         <div id="rangeWarning" style="display:none;padding:4px 16px;font-size:12px;color:#e65100;background:#fff3e0;border-bottom:1px solid #ffe0b2;"></div>
@@ -361,544 +446,61 @@
     </div>
 </div>
 
+<!-- 預覽/編輯 Modal -->
+    <div id="previewModal">
+        <div id="previewBox">
+            <h3>匯入資料預覽 <span>可直接修改欄位，確認後才加入甘特圖</span></h3>
+            <div id="filterBar">
+                <label>地區：</label>
+                <select id="fRegion">
+                    <option value="">全部</option>
+                    <option>北部</option><option>中部</option><option>南部</option>
+                </select>
+                <label>電廠：</label>
+                <input type="text" id="fPlant" placeholder="輸入電廠名稱…">
+                <label>類別：</label>
+                <select id="fType">
+                    <option value="">全部</option>
+                    <option>火力</option><option>核能</option><option>複循環</option>
+                    <option>水力</option><option>IPP</option>
+                </select>
+                <button id="clearFilter">清除篩選</button>
+                <span id="filterCount"></span>
+            </div>
+            <div id="previewTableWrap">
+                <table id="previewTable">
+                    <thead>
+                        <tr>
+                            <th class="sortable" data-col="0">地區 <span class="sort-icon"></span></th><th class="sortable" data-col="1">電廠名稱 <span class="sort-icon"></span></th><th>機組</th>
+                            <th>類別</th><th class="sortable" data-col="4">開始日期 <span class="sort-icon"></span></th><th>結束日期</th><th></th>
+                        </tr>
+                    </thead>
+                    <tbody></tbody>
+                </table>
+            </div>
+            <div id="previewFooter">
+                <button class="add-row-btn" id="previewAddRow">＋ 新增列</button>
+                <span class="cnt"></span>
+                <button class="modal-btn cancel" id="previewCancel">取消</button>
+                <button class="modal-btn confirm" id="previewConfirm">確認加入甘特圖</button>
+            </div>
+        </div>
+    </div>
+    <!-- 移除大修項目確認框 -->
+    <div id="removePopup">
+        <h4>🗑 移除大修項目</h4>
+        <div class="info" id="removePopupInfo"></div>
+        <div class="btns">
+            <button id="removeCancelBtn">否，保留</button>
+            <button id="removeConfirmBtn">是，移除</button>
+        </div>
+    </div>
+</body>
+</html>
+
+
 <script>
-        const allData = [
-            // 105年度資料
-            {year:105, plant:"核三", unit:"#2", start:"2015-11-09", end:"2016-01-11", days:64, type:"核能", region:"南部"},
-            {year:105, plant:"中十", unit:"", start:"2015-12-16", end:"2016-02-06", days:53, type:"火力", region:"中部"},
-            {year:105, plant:"中七", unit:"", start:"2016-02-12", end:"2016-03-20", days:38, type:"火力", region:"中部"},
-            {year:105, plant:"中四", unit:"", start:"2016-03-21", end:"2016-05-16", days:57, type:"火力", region:"中部"},
-            {year:105, plant:"協一", unit:"", start:"2015-12-30", end:"2016-02-02", days:35, type:"火力", region:"北部"},
-            {year:105, plant:"協三", unit:"", start:"2016-02-21", end:"2016-04-06", days:46, type:"火力", region:"北部"},
-            {year:105, plant:"協四", unit:"", start:"2016-02-22", end:"2016-03-18", days:26, type:"火力", region:"北部"},
-            {year:105, plant:"興三", unit:"", start:"2016-01-27", end:"2016-03-09", days:43, type:"火力", region:"南部"},
-            {year:105, plant:"核二", unit:"#2", start:"2016-04-12", end:"2016-05-20", days:39, type:"核能", region:"北部"},
-            {year:105, plant:"核二", unit:"#1", start:"2016-11-30", end:"2017-06-30", days:213, type:"核能", region:"北部"},
-            {year:105, plant:"核三", unit:"#1", start:"2016-10-11", end:"2016-11-21", days:41, type:"核能", region:"南部"},
-            {year:105, plant:"大潭", unit:"CC#2 GT2-1", start:"2016-01-05", end:"2016-01-29", days:25, type:"複循環", region:"北部"},
-            {year:105, plant:"大潭", unit:"CC#5 GT5-1", start:"2015-11-12", end:"2016-01-31", days:81, type:"複循環", region:"北部"},
-            {year:105, plant:"大潭", unit:"CC#6 GT6-1", start:"2016-02-12", end:"2016-05-02", days:81, type:"複循環", region:"北部"},
-            {year:105, plant:"興達", unit:"CC#5", start:"2015-12-01", end:"2016-03-21", days:112, type:"複循環", region:"南部"},
-            {year:105, plant:"通霄", unit:"CC#4 GT41-43", start:"2016-03-20", end:"2016-05-31", days:73, type:"複循環", region:"中部"},
-            {year:105, plant:"明潭", unit:"#4", start:"2015-10-01", end:"2016-02-17", days:132, type:"水力", region:"中部"},
-            {year:105, plant:"銅門", unit:"#1-3", start:"2015-10-19", end:"2016-04-29", days:194, type:"水力", region:"中部"},
-            {year:105, plant:"天輪", unit:"#2", start:"2016-02-22", end:"2016-05-11", days:79, type:"水力", region:"中部"},
-            {year:105, plant:"和平", unit:"#1", start:"2016-01-09", end:"2016-02-12", days:35, type:"IPP", region:"北部"},
-            {year:105, plant:"和平", unit:"#2", start:"2016-02-07", end:"2016-03-12", days:35, type:"IPP", region:"北部"},
-            {year:105, plant:"麥寮", unit:"#2", start:"2015-12-25", end:"2016-02-29", days:57, type:"IPP", region:"南部"},
-            {year:105, plant:"麥寮", unit:"#1", start:"2016-10-22", end:"2017-01-04", days:75, type:"IPP", region:"南部"},
-            // 106年度資料
-            {year:106, plant:"大四", unit:"", start:"2017-01-05", end:"2017-01-13", days:9, type:"火力", region:"南部"},
-            {year:106, plant:"協和", unit:"#4", start:"2015-12-10", end:"2016-01-28", days:50, type:"火力", region:"北部"},
-            {year:106, plant:"中九", unit:"", start:"2016-12-19", end:"2017-01-23", days:36, type:"火力", region:"中部"},
-            {year:106, plant:"協二", unit:"", start:"2017-01-20", end:"2017-03-14", days:54, type:"火力", region:"北部"},
-            {year:106, plant:"中六", unit:"", start:"2017-01-24", end:"2017-03-21", days:57, type:"火力", region:"中部"},
-            {year:106, plant:"協一", unit:"", start:"2017-03-02", end:"2017-04-05", days:35, type:"火力", region:"北部"},
-            {year:106, plant:"大林", unit:"#5", start:"2017-03-03", end:"2017-04-30", days:59, type:"火力", region:"南部"},
-            {year:106, plant:"中一", unit:"", start:"2017-03-22", end:"2017-04-08", days:18, type:"火力", region:"中部"},
-            {year:106, plant:"核二", unit:"#2", start:"2017-04-07", end:"2017-06-15", days:70, type:"核能", region:"北部"},
-            {year:106, plant:"林口", unit:"#1", start:"2017-04-28", end:"2017-05-11", days:14, type:"火力", region:"北部"},
-            {year:106, plant:"林口", unit:"#2", start:"2017-05-03", end:"2017-05-19", days:17, type:"火力", region:"北部"},
-            {year:106, plant:"大潭", unit:"CC#5 GT5-1", start:"2017-01-11", end:"2017-02-14", days:35, type:"複循環", region:"北部"},
-            {year:106, plant:"大潭", unit:"CC#2 GT21", start:"2017-02-17", end:"2017-03-27", days:39, type:"複循環", region:"北部"},
-            {year:106, plant:"通霄", unit:"CC#6 GT61/62", start:"2017-02-21", end:"2017-05-05", days:74, type:"複循環", region:"中部"},
-            {year:106, plant:"興達", unit:"CC#1 GT11", start:"2017-09-19", end:"2017-12-24", days:97, type:"複循環", region:"南部"},
-            {year:106, plant:"南部", unit:"CC#4", start:"2017-03-18", end:"2017-04-19", days:33, type:"複循環", region:"南部"},
-            {year:106, plant:"圓山", unit:"#1", start:"2016-12-19", end:"2017-02-15", days:59, type:"水力", region:"中部"},
-            {year:106, plant:"明潭", unit:"#6", start:"2017-01-09", end:"2017-01-21", days:13, type:"水力", region:"中部"},
-            {year:106, plant:"明潭", unit:"#5", start:"2016-11-09", end:"2017-01-04", days:57, type:"水力", region:"中部"},
-            {year:106, plant:"麥寮", unit:"#3", start:"2017-01-29", end:"2017-02-05", days:6, type:"IPP", region:"南部"},
-            {year:106, plant:"國光", unit:"", start:"2017-01-27", end:"2017-02-10", days:15, type:"IPP", region:"北部"},
-            {year:106, plant:"和平", unit:"#2", start:"2017-01-13", end:"2017-02-01", days:20, type:"IPP", region:"北部"},
-            {year:106, plant:"和平", unit:"#1", start:"2017-01-26", end:"2017-02-02", days:27, type:"IPP", region:"北部"},
-            {year:106, plant:"星彰", unit:"", start:"2016-12-31", end:"2017-01-08", days:9, type:"IPP", region:"中部"},
-            {year:106, plant:"嘉惠", unit:"", start:"2017-01-21", end:"2017-02-19", days:30, type:"IPP", region:"中部"},
-            // 107年度資料
-            {year:107,plant:"協和",unit:"#1",start:"2017-12-22",end:"2018-01-30",days:40,type:"火力",region:"北部"},
-            {year:107,plant:"協和",unit:"#3",start:"2018-01-31",end:"2018-04-13",days:73,type:"火力",region:"北部"},
-            {year:107,plant:"協和",unit:"#4",start:"2017-12-04",end:"2018-02-01",days:60,type:"火力",region:"北部"},
-            {year:107,plant:"林口",unit:"#1",start:"2018-03-17",end:"2018-04-30",days:45,type:"火力",region:"北部"},
-            {year:107,plant:"林口",unit:"#2",start:"2018-05-01",end:"2018-06-30",days:14,type:"火力",region:"北部"},
-            {year:107,plant:"核二",unit:"#1",start:"2018-10-11",end:"2018-11-21",days:42,type:"核能",region:"北部"},
-            {year:107,plant:"核二",unit:"#2",start:"2018-06-17",end:"2019-02-28",days:256,type:"核能",region:"北部"},
-            {year:107,plant:"核三",unit:"#1",start:"2018-04-03",end:"2018-05-17",days:45,type:"核能",region:"南部"},
-            {year:107,plant:"核三",unit:"#2",start:"2017-12-03",end:"2018-01-16",days:45,type:"核能",region:"南部"},
-            {year:107,plant:"台中",unit:"#1 AQCS",start:"2017-09-01",end:"2018-01-31",days:153,type:"火力",region:"中部"},
-            {year:107,plant:"台中",unit:"#2",start:"2017-12-19",end:"2018-01-01",days:14,type:"火力",region:"中部"},
-            {year:107,plant:"台中",unit:"#2 AQCS",start:"2018-09-01",end:"2019-01-20",days:142,type:"火力",region:"中部"},
-            {year:107,plant:"台中",unit:"#3",start:"2017-12-29",end:"2018-05-30",days:153,type:"火力",region:"中部"},
-            {year:107,plant:"台中",unit:"#4",start:"2018-01-25",end:"2018-03-15",days:50,type:"火力",region:"中部"},
-            {year:107,plant:"台中",unit:"#7",start:"2018-03-13",end:"2018-05-20",days:69,type:"火力",region:"中部"},
-            {year:107,plant:"台中",unit:"#8",start:"2018-10-19",end:"2019-01-04",days:78,type:"火力",region:"中部"},
-            {year:107,plant:"台中",unit:"#9",start:"2017-12-24",end:"2018-02-27",days:66,type:"火力",region:"中部"},
-            {year:107,plant:"台中",unit:"#10",start:"2017-12-29",end:"2018-02-11",days:45,type:"火力",region:"中部"},
-            {year:107,plant:"大林",unit:"#5",start:"2018-06-10",end:"2018-06-30",days:21,type:"火力",region:"南部"},
-            {year:107,plant:"大林",unit:"#6",start:"2018-09-17",end:"2018-09-30",days:14,type:"火力",region:"南部"},
-            {year:107,plant:"興達",unit:"#1",start:"2018-04-02",end:"2018-06-06",days:65,type:"火力",region:"南部"},
-            {year:107,plant:"興達",unit:"#2",start:"2017-10-07",end:"2018-01-19",days:105,type:"火力",region:"南部"},
-            {year:107,plant:"興達",unit:"#3",start:"2018-01-10",end:"2018-04-07",days:88,type:"火力",region:"南部"},
-            {year:107,plant:"大潭",unit:"CC#1 GT11",start:"2017-10-27",end:"2018-01-04",days:70,type:"複循環",region:"北部"},
-            {year:107,plant:"大潭",unit:"CC#1 GT12",start:"2017-12-08",end:"2018-02-20",days:75,type:"複循環",region:"北部"},
-            {year:107,plant:"大潭",unit:"CC#1 GT13",start:"2017-10-01",end:"2017-12-13",days:74,type:"複循環",region:"北部"},
-            {year:107,plant:"大潭",unit:"CC#1 ST1",start:"2017-10-27",end:"2017-12-09",days:44,type:"複循環",region:"北部"},
-            {year:107,plant:"大潭",unit:"CC#3 GT31",start:"2017-12-29",end:"2018-02-27",days:61,type:"複循環",region:"北部"},
-            {year:107,plant:"大潭",unit:"CC#3 GT32",start:"2018-01-01",end:"2018-03-02",days:61,type:"複循環",region:"北部"},
-            {year:107,plant:"大潭",unit:"CC#3 ST3",start:"2018-01-01",end:"2018-01-30",days:30,type:"複循環",region:"北部"},
-            {year:107,plant:"大潭",unit:"CC#5 GT52",start:"2017-12-14",end:"2018-01-11",days:29,type:"複循環",region:"北部"},
-            {year:107,plant:"大潭",unit:"CC#5 GT51",start:"2017-12-17",end:"2018-01-14",days:29,type:"複循環",region:"北部"},
-            {year:107,plant:"大潭",unit:"CC#6 GT62",start:"2018-03-17",end:"2018-06-03",days:78,type:"複循環",region:"北部"},
-            {year:107,plant:"大潭",unit:"CC#6 GT61",start:"2018-03-10",end:"2018-05-30",days:82,type:"複循環",region:"北部"},
-            {year:107,plant:"大潭",unit:"CC#6 ST6",start:"2018-03-25",end:"2018-04-24",days:31,type:"複循環",region:"北部"},
-            {year:107,plant:"通霄",unit:"GT51/GT52",start:"2017-12-22",end:"2018-04-08",days:108,type:"複循環",region:"中部"},
-            {year:107,plant:"興達",unit:"CC#1 GT12",start:"2017-10-03",end:"2018-01-07",days:97,type:"複循環",region:"南部"},
-            {year:107,plant:"興達",unit:"CC#2 GT21",start:"2018-01-11",end:"2018-04-20",days:100,type:"複循環",region:"南部"},
-            {year:107,plant:"興達",unit:"CC#2 GT22",start:"2018-01-01",end:"2018-04-10",days:100,type:"複循環",region:"南部"},
-            {year:107,plant:"興達",unit:"CC#2 GT23",start:"2018-01-01",end:"2018-04-10",days:100,type:"複循環",region:"南部"},
-            {year:107,plant:"興達",unit:"CC#2 ST2",start:"2018-02-14",end:"2018-03-31",days:46,type:"複循環",region:"南部"},
-            {year:107,plant:"南火",unit:"GT11",start:"2017-12-18",end:"2018-03-17",days:90,type:"複循環",region:"南部"},
-            {year:107,plant:"南火",unit:"GT12",start:"2018-01-01",end:"2018-03-31",days:90,type:"複循環",region:"南部"},
-            {year:107,plant:"南火",unit:"ST1",start:"2018-01-01",end:"2018-02-07",days:38,type:"複循環",region:"南部"},
-            {year:107,plant:"明潭",unit:"#1",start:"2017-11-18",end:"2018-04-06",days:131,type:"水力",region:"中部"},
-            {year:107,plant:"明潭",unit:"#3",start:"2018-10-01",end:"2018-10-13",days:13,type:"水力",region:"中部"},
-            {year:107,plant:"明潭",unit:"#4",start:"2018-05-01",end:"2018-05-31",days:31,type:"水力",region:"中部"},
-            {year:107,plant:"明潭",unit:"#5",start:"2018-01-01",end:"2018-01-27",days:27,type:"水力",region:"中部"},
-            {year:107,plant:"明潭",unit:"#6",start:"2018-01-29",end:"2018-02-14",days:17,type:"水力",region:"中部"},
-            {year:107,plant:"德基",unit:"#2",start:"2018-01-30",end:"2018-03-24",days:54,type:"水力",region:"中部"},
-            {year:107,plant:"天埤",unit:"#2",start:"2018-02-26",end:"2018-03-21",days:24,type:"水力",region:"中部"},
-            {year:107,plant:"天埤",unit:"#4",start:"2018-01-17",end:"2018-02-09",days:24,type:"水力",region:"中部"},
-            {year:107,plant:"和平",unit:"#1",start:"2017-12-28",end:"2018-02-20",days:55,type:"IPP",region:"北部"},
-            {year:107,plant:"和平",unit:"#2",start:"2018-02-15",end:"2018-03-06",days:20,type:"IPP",region:"北部"},
-            {year:107,plant:"麥寮",unit:"#1",start:"2018-10-01",end:"2018-10-10",days:10,type:"IPP",region:"南部"},
-            {year:107,plant:"麥寮",unit:"#2",start:"2017-11-01",end:"2018-03-10",days:131,type:"IPP",region:"南部"},
-            {year:107,plant:"麥寮",unit:"#3",start:"2018-02-18",end:"2018-05-05",days:77,type:"IPP",region:"南部"},
-            {year:107,plant:"新桃",unit:"GT1A",start:"2018-03-07",end:"2018-04-15",days:40,type:"IPP",region:"北部"},
-            {year:107,plant:"國光",unit:"CC#1",start:"2017-11-10",end:"2017-12-27",days:48,type:"IPP",region:"北部"},
-            // 108年度資料
-            {year:108,plant:"協和",unit:"#4",start:"2019-10-12",end:"2020-02-11",days:65,type:"火力",region:"北部"},
-            {year:108,plant:"林口",unit:"#2",start:"2019-01-17",end:"2019-04-20",days:94,type:"火力",region:"北部"},
-            {year:108,plant:"核二",unit:"#2",start:"2019-04-11",end:"2019-05-25",days:45,type:"核能",region:"北部"},
-            {year:108,plant:"台中",unit:"#10",start:"2019-01-12",end:"2019-03-07",days:86,type:"火力",region:"中部"},
-            {year:108,plant:"台中",unit:"#2 AQCS",start:"2018-09-01",end:"2019-01-20",days:147,type:"火力",region:"中部"},
-            {year:108,plant:"台中",unit:"#3",start:"2019-01-01",end:"2019-05-30",days:153,type:"火力",region:"中部"},
-            {year:108,plant:"台中",unit:"#4",start:"2019-07-26",end:"2020-01-25",days:182,type:"火力",region:"中部"},
-            {year:108,plant:"台中",unit:"#5",start:"2019-10-17",end:"2020-01-09",days:85,type:"火力",region:"中部"},
-            {year:108,plant:"台中",unit:"#6",start:"2019-02-11",end:"2019-03-17",days:35,type:"火力",region:"中部"},
-            {year:108,plant:"台中",unit:"#7",start:"2019-09-01",end:"2019-10-16",days:46,type:"火力",region:"中部"},
-            {year:108,plant:"台中",unit:"#9",start:"2019-03-21",end:"2019-05-21",days:62,type:"火力",region:"中部"},
-            {year:108,plant:"大林",unit:"#1",start:"2019-11-21",end:"2020-02-21",days:93,type:"火力",region:"南部"},
-            {year:108,plant:"大林",unit:"#5",start:"2019-09-04",end:"2019-11-18",days:76,type:"火力",region:"南部"},
-            {year:108,plant:"大林",unit:"#6",start:"2019-03-18",end:"2019-06-30",days:96,type:"火力",region:"南部"},
-            {year:108,plant:"核三",unit:"#1",start:"2019-10-15",end:"2019-11-28",days:45,type:"核能",region:"南部"},
-            {year:108,plant:"核三",unit:"#2",start:"2019-12-03",end:"2020-01-11",days:40,type:"核能",region:"南部"},
-            {year:108,plant:"大潭",unit:"CC#5 GT51",start:"2019-01-12",end:"2019-02-14",days:34,type:"複循環",region:"北部"},
-            {year:108,plant:"大潭",unit:"CC#5 GT52",start:"2018-12-10",end:"2019-01-07",days:29,type:"複循環",region:"北部"},
-            {year:108,plant:"大潭",unit:"GT21",start:"2019-02-23",end:"2019-05-08",days:75,type:"複循環",region:"北部"},
-            {year:108,plant:"大潭",unit:"GT22",start:"2019-04-08",end:"2019-06-17",days:71,type:"複循環",region:"北部"},
-            {year:108,plant:"大潭",unit:"GT23",start:"2019-01-28",end:"2019-04-13",days:76,type:"複循環",region:"北部"},
-            {year:108,plant:"大潭",unit:"GT31",start:"2019-06-01",end:"2019-06-30",days:30,type:"複循環",region:"北部"},
-            {year:108,plant:"大潭",unit:"GT32",start:"2019-06-11",end:"2019-07-09",days:29,type:"複循環",region:"北部"},
-            {year:108,plant:"大潭",unit:"GT41",start:"2019-07-11",end:"2020-02-19",days:98,type:"複循環",region:"北部"},
-            {year:108,plant:"大潭",unit:"GT42",start:"2019-10-01",end:"2020-01-03",days:95,type:"複循環",region:"北部"},
-            {year:108,plant:"大潭",unit:"GT61",start:"2019-03-11",end:"2019-04-09",days:30,type:"複循環",region:"北部"},
-            {year:108,plant:"大潭",unit:"GT62",start:"2019-03-30",end:"2019-04-28",days:30,type:"複循環",region:"北部"},
-            {year:108,plant:"大潭",unit:"GT71",start:"2018-12-18",end:"2019-03-11",days:85,type:"複循環",region:"北部"},
-            {year:108,plant:"大潭",unit:"GT72",start:"2018-12-15",end:"2019-02-12",days:61,type:"複循環",region:"北部"},
-            {year:108,plant:"大潭",unit:"ST2",start:"2019-02-23",end:"2019-04-08",days:45,type:"複循環",region:"北部"},
-            {year:108,plant:"通霄",unit:"CC#4 GT41",start:"2019-05-20",end:"2019-07-31",days:73,type:"複循環",region:"中部"},
-            {year:108,plant:"通霄",unit:"CC#4 GT42",start:"2019-05-18",end:"2019-07-29",days:73,type:"複循環",region:"中部"},
-            {year:108,plant:"通霄",unit:"CC#4 GT43",start:"2019-05-16",end:"2019-07-27",days:73,type:"複循環",region:"中部"},
-            {year:108,plant:"通霄",unit:"CC#4 ST4",start:"2019-05-22",end:"2019-07-25",days:65,type:"複循環",region:"中部"},
-            {year:108,plant:"通霄",unit:"GT12",start:"2019-01-02",end:"2019-02-23",days:53,type:"複循環",region:"中部"},
-            {year:108,plant:"南部",unit:"CC#3 GT31",start:"2019-01-07",end:"2019-03-31",days:84,type:"複循環",region:"南部"},
-            {year:108,plant:"南部",unit:"CC#3 GT32",start:"2019-01-15",end:"2019-04-09",days:85,type:"複循環",region:"南部"},
-            {year:108,plant:"南部",unit:"CC#3 ST3",start:"2019-02-08",end:"2019-03-17",days:38,type:"複循環",region:"南部"},
-            {year:108,plant:"明潭",unit:"#1",start:"2019-04-29",end:"2019-05-11",days:13,type:"水力",region:"中部"},
-            {year:108,plant:"明潭",unit:"#2",start:"2019-02-28",end:"2019-03-26",days:27,type:"水力",region:"中部"},
-            {year:108,plant:"明潭",unit:"#3",start:"2019-10-21",end:"2020-03-13",days:145,type:"水力",region:"中部"},
-            {year:108,plant:"明潭",unit:"#5",start:"2019-09-02",end:"2019-09-28",days:27,type:"水力",region:"中部"},
-            {year:108,plant:"明潭",unit:"#6",start:"2019-07-03",end:"2019-08-16",days:45,type:"水力",region:"中部"},
-            {year:108,plant:"觀二",unit:"#1",start:"2018-12-23",end:"2019-01-06",days:15,type:"水力",region:"中部"},
-            {year:108,plant:"觀二",unit:"#3",start:"2018-11-21",end:"2019-05-20",days:151,type:"水力",region:"中部"},
-            {year:108,plant:"觀二",unit:"#4",start:"2019-01-21",end:"2019-03-24",days:63,type:"水力",region:"中部"},
-            {year:108,plant:"觀一",unit:"#1",start:"2019-10-21",end:"2020-02-24",days:127,type:"水力",region:"中部"},
-            {year:108,plant:"觀一",unit:"#2",start:"2019-11-04",end:"2019-12-13",days:40,type:"水力",region:"中部"},
-            {year:108,plant:"觀一",unit:"#4",start:"2019-09-02",end:"2019-10-11",days:40,type:"水力",region:"中部"},
-            {year:108,plant:"觀一",unit:"#5",start:"2019-06-03",end:"2019-07-22",days:50,type:"水力",region:"中部"},
-            {year:108,plant:"和平",unit:"#1",start:"2019-03-30",end:"2019-05-12",days:44,type:"IPP",region:"北部"},
-            {year:108,plant:"和平",unit:"#2",start:"2019-01-04",end:"2019-02-11",days:39,type:"IPP",region:"北部"},
-            {year:108,plant:"麥寮",unit:"#1",start:"2019-10-01",end:"2020-02-27",days:150,type:"IPP",region:"南部"},
-            {year:108,plant:"麥寮",unit:"#2",start:"2018-11-03",end:"2019-03-20",days:140,type:"IPP",region:"南部"},
-            {year:108,plant:"麥寮",unit:"#3",start:"2019-01-16",end:"2019-01-25",days:10,type:"IPP",region:"南部"},
-            // 109年度資料
-            {year:109,plant:"核三",unit:"#2",start:"2020-04-07",end:"2020-05-26",days:50,type:"核能",region:"南部"},
-            {year:109,plant:"核二",unit:"#2",start:"2020-11-20",end:"2021-01-04",days:46,type:"核能",region:"北部"},
-            {year:109,plant:"核二",unit:"#1",start:"2020-02-20",end:"2020-04-01",days:42,type:"核能",region:"北部"},
-            {year:109,plant:"協和",unit:"#3",start:"2020-05-01",end:"2020-06-30",days:61,type:"火力",region:"北部"},
-            {year:109,plant:"林口",unit:"#2",start:"2020-11-21",end:"2021-02-21",days:93,type:"火力",region:"北部"},
-            {year:109,plant:"林口",unit:"#1",start:"2020-03-26",end:"2020-06-22",days:89,type:"火力",region:"北部"},
-            {year:109,plant:"協和",unit:"#4",start:"2020-12-19",end:"2021-01-01",days:14,type:"火力",region:"北部"},
-            {year:109,plant:"大林",unit:"#2",start:"2020-02-22",end:"2020-05-20",days:89,type:"火力",region:"南部"},
-            {year:109,plant:"大林",unit:"#6",start:"2020-10-19",end:"2020-10-31",days:12,type:"火力",region:"南部"},
-            {year:109,plant:"台中",unit:"#1",start:"2020-11-18",end:"2021-01-01",days:45,type:"火力",region:"中部"},
-            {year:109,plant:"台中",unit:"#5",start:"2019-10-17",end:"2020-01-09",days:85,type:"火力",region:"中部"},
-            {year:109,plant:"台中",unit:"#8",start:"2020-09-01",end:"2020-11-17",days:78,type:"火力",region:"中部"},
-            {year:109,plant:"台中",unit:"#6",start:"2020-05-04",end:"2020-06-26",days:54,type:"火力",region:"中部"},
-            {year:109,plant:"台中",unit:"#2",start:"2020-10-19",end:"2020-11-07",days:20,type:"火力",region:"中部"},
-            {year:109,plant:"台中",unit:"#9",start:"2020-08-13",end:"2020-08-19",days:6,type:"火力",region:"中部"},
-            {year:109,plant:"興達",unit:"#1",start:"2020-10-01",end:"2020-12-08",days:69,type:"火力",region:"南部"},
-            {year:109,plant:"興達",unit:"#2",start:"2020-12-09",end:"2021-01-17",days:40,type:"火力",region:"南部"},
-            {year:109,plant:"興達",unit:"#3",start:"2020-10-01",end:"2020-11-30",days:61,type:"火力",region:"南部"},
-            {year:109,plant:"興達",unit:"#4",start:"2020-12-01",end:"2021-03-31",days:121,type:"火力",region:"南部"},
-            {year:109,plant:"大潭",unit:"GT32",start:"2020-11-10",end:"2021-02-28",days:111,type:"複循環",region:"北部"},
-            {year:109,plant:"大潭",unit:"GT31",start:"2020-11-20",end:"2021-03-10",days:111,type:"複循環",region:"北部"},
-            {year:109,plant:"大潭",unit:"ST3",start:"2020-12-03",end:"2021-01-15",days:44,type:"複循環",region:"北部"},
-            {year:109,plant:"大潭",unit:"GT51",start:"2020-11-18",end:"2021-02-18",days:93,type:"複循環",region:"北部"},
-            {year:109,plant:"大潭",unit:"GT52",start:"2020-11-28",end:"2021-02-28",days:93,type:"複循環",region:"北部"},
-            {year:109,plant:"大潭",unit:"ST5",start:"2020-11-28",end:"2021-01-10",days:44,type:"複循環",region:"北部"},
-            {year:109,plant:"大潭",unit:"GT61",start:"2020-03-16",end:"2020-06-01",days:78,type:"複循環",region:"北部"},
-            {year:109,plant:"大潭",unit:"GT62",start:"2020-03-19",end:"2020-06-04",days:78,type:"複循環",region:"北部"},
-            {year:109,plant:"大潭",unit:"ST6",start:"2020-04-08",end:"2020-05-29",days:52,type:"複循環",region:"北部"},
-            {year:109,plant:"大潭",unit:"GT72",start:"2020-06-01",end:"2020-09-09",days:101,type:"複循環",region:"北部"},
-            {year:109,plant:"大潭",unit:"GT11",start:"2020-01-09",end:"2020-01-19",days:11,type:"複循環",region:"北部"},
-            {year:109,plant:"大潭",unit:"GT42",start:"2020-06-23",end:"2020-07-22",days:30,type:"複循環",region:"北部"},
-            {year:109,plant:"大潭",unit:"GT23",start:"2020-03-16",end:"2020-03-25",days:10,type:"複循環",region:"北部"},
-            {year:109,plant:"大潭",unit:"GT12",start:"2020-03-01",end:"2020-03-10",days:10,type:"複循環",region:"北部"},
-            {year:109,plant:"通霄",unit:"GT11",start:"2020-08-22",end:"2020-10-17",days:57,type:"複循環",region:"中部"},
-            {year:109,plant:"通霄",unit:"GT21",start:"2020-02-12",end:"2020-04-17",days:66,type:"複循環",region:"中部"},
-            {year:109,plant:"通霄",unit:"GT22",start:"2020-02-15",end:"2020-04-20",days:66,type:"複循環",region:"中部"},
-            {year:109,plant:"通霄",unit:"ST2",start:"2020-02-15",end:"2020-04-08",days:54,type:"複循環",region:"中部"},
-            {year:109,plant:"通霄",unit:"GT12",start:"2020-12-01",end:"2021-01-25",days:56,type:"複循環",region:"中部"},
-            {year:109,plant:"興達",unit:"GT51",start:"2019-12-26",end:"2020-03-29",days:95,type:"複循環",region:"南部"},
-            {year:109,plant:"興達",unit:"GT52",start:"2020-01-05",end:"2020-04-09",days:96,type:"複循環",region:"南部"},
-            {year:109,plant:"興達",unit:"GT53",start:"2020-01-15",end:"2020-04-19",days:96,type:"複循環",region:"南部"},
-            {year:109,plant:"興達",unit:"ST5",start:"2020-01-15",end:"2020-03-04",days:50,type:"複循環",region:"南部"},
-            {year:109,plant:"興達",unit:"CC#1 GT11",start:"2020-12-11",end:"2021-02-20",days:72,type:"複循環",region:"南部"},
-            {year:109,plant:"興達",unit:"CC#1 GT12",start:"2020-12-19",end:"2021-03-05",days:77,type:"複循環",region:"南部"},
-            {year:109,plant:"興達",unit:"CC#1 GT13",start:"2020-12-27",end:"2021-03-13",days:77,type:"複循環",region:"南部"},
-            {year:109,plant:"興達",unit:"CC#1 ST1",start:"2020-12-27",end:"2021-02-09",days:45,type:"複循環",region:"南部"},
-            {year:109,plant:"南部",unit:"GT22",start:"2020-01-01",end:"2020-05-31",days:152,type:"複循環",region:"南部"},
-            {year:109,plant:"明潭",unit:"#2",start:"2020-02-17",end:"2020-02-26",days:10,type:"水力",region:"中部"},
-            {year:109,plant:"明潭",unit:"#1",start:"2020-11-02",end:"2021-01-28",days:88,type:"水力",region:"中部"},
-            {year:109,plant:"明潭",unit:"#2",start:"2020-10-12",end:"2021-03-20",days:161,type:"水力",region:"中部"},
-            {year:109,plant:"明潭",unit:"#4",start:"2020-05-25",end:"2020-07-15",days:52,type:"水力",region:"中部"},
-            {year:109,plant:"明潭",unit:"#6",start:"2020-09-14",end:"2020-09-27",days:14,type:"水力",region:"中部"},
-            {year:109,plant:"觀二",unit:"#2",start:"2020-01-06",end:"2020-01-17",days:12,type:"水力",region:"中部"},
-            {year:109,plant:"觀二",unit:"#1",start:"2020-11-16",end:"2020-11-27",days:12,type:"水力",region:"中部"},
-            {year:109,plant:"觀二",unit:"#4",start:"2020-04-01",end:"2020-04-20",days:20,type:"水力",region:"中部"},
-            {year:109,plant:"觀二",unit:"#3",start:"2020-02-13",end:"2020-02-26",days:14,type:"水力",region:"中部"},
-            {year:109,plant:"谷關",unit:"#4",start:"2020-02-03",end:"2020-04-11",days:69,type:"水力",region:"中部"},
-            {year:109,plant:"觀一",unit:"#2",start:"2020-02-24",end:"2020-04-10",days:46,type:"水力",region:"中部"},
-            {year:109,plant:"鉅工",unit:"#2",start:"2020-03-09",end:"2020-08-31",days:176,type:"水力",region:"中部"},
-            {year:109,plant:"卓蘭",unit:"#1",start:"2020-01-13",end:"2020-05-04",days:113,type:"水力",region:"中部"},
-            {year:109,plant:"天埤",unit:"#4",start:"2020-03-16",end:"2020-04-20",days:36,type:"水力",region:"中部"},
-            {year:109,plant:"天埤",unit:"#2",start:"2020-02-13",end:"2020-03-14",days:31,type:"水力",region:"中部"},
-            {year:109,plant:"圓山",unit:"#1",start:"2020-11-01",end:"2021-04-30",days:182,type:"水力",region:"中部"},
-            {year:109,plant:"觀一",unit:"#3",start:"2020-04-13",end:"2020-05-28",days:46,type:"水力",region:"中部"},
-            {year:109,plant:"觀一",unit:"#5",start:"2020-10-05",end:"2021-01-30",days:118,type:"水力",region:"中部"},
-            {year:109,plant:"馬鞍",unit:"#1#2",start:"2020-10-26",end:"2021-01-05",days:72,type:"水力",region:"中部"},
-            {year:109,plant:"和平",unit:"#1",start:"2020-01-24",end:"2020-02-14",days:22,type:"IPP",region:"北部"},
-            {year:109,plant:"和平",unit:"#2",start:"2020-01-27",end:"2020-01-29",days:3,type:"IPP",region:"北部"},
-            {year:109,plant:"和平",unit:"#2",start:"2020-11-21",end:"2020-12-18",days:28,type:"IPP",region:"北部"},
-            {year:109,plant:"麥寮",unit:"#2",start:"2020-12-01",end:"2020-12-20",days:20,type:"IPP",region:"南部"},
-            {year:109,plant:"麥寮",unit:"#3",start:"2020-10-09",end:"2020-10-18",days:10,type:"IPP",region:"南部"},
-            {year:109,plant:"新桃",unit:"GT1C",start:"2020-03-29",end:"2020-04-14",days:17,type:"IPP",region:"北部"},
-            {year:109,plant:"嘉惠",unit:"#1",start:"2020-01-24",end:"2020-02-01",days:9,type:"IPP",region:"中部"},
-            {year:109,plant:"國光",unit:"#1",start:"2020-10-31",end:"2020-11-11",days:12,type:"IPP",region:"北部"},
-            {year:109,plant:"豐德",unit:"CC#1",start:"2020-11-08",end:"2020-11-30",days:23,type:"IPP",region:"中部"},
-            {year:109,plant:"麥寮",unit:"#1",start:"2020-12-21",end:"2021-01-19",days:30,type:"IPP",region:"南部"},
-            // 110年度資料
-            {year:110,plant:"林口",unit:"#2",start:"2020-11-21",end:"2021-02-05",days:77,type:"火力",region:"北部"},
-            {year:110,plant:"核二",unit:"#2",start:"2020-11-21",end:"2021-01-04",days:45,type:"核能",region:"北部"},
-            {year:110,plant:"核二",unit:"#1",start:"2021-02-23",end:"2021-12-31",days:312,type:"核能",region:"北部"},
-            {year:110,plant:"核三",unit:"#1",start:"2021-04-07",end:"2021-05-20",days:44,type:"核能",region:"南部"},
-            {year:110,plant:"核三",unit:"#2",start:"2020-10-30",end:"2020-12-12",days:44,type:"核能",region:"南部"},
-            {year:110,plant:"台中",unit:"#4",start:"2020-12-20",end:"2021-02-07",days:50,type:"火力",region:"中部"},
-            {year:110,plant:"台中",unit:"#5",start:"2020-10-01",end:"2020-12-19",days:81,type:"火力",region:"中部"},
-            {year:110,plant:"台中",unit:"#6",start:"2021-05-24",end:"2021-09-14",days:114,type:"火力",region:"中部"},
-            {year:110,plant:"台中",unit:"#9",start:"2021-02-21",end:"2021-05-22",days:85,type:"火力",region:"中部"},
-            {year:110,plant:"台中",unit:"#10",start:"2021-01-02",end:"2021-02-18",days:47,type:"火力",region:"中部"},
-            {year:110,plant:"林口",unit:"#3",start:"2021-03-06",end:"2021-05-20",days:76,type:"火力",region:"北部"},
-            {year:110,plant:"協和",unit:"#4",start:"2021-05-08",end:"2021-06-17",days:41,type:"火力",region:"北部"},
-            {year:110,plant:"大林",unit:"#1",start:"2020-12-19",end:"2021-02-11",days:55,type:"火力",region:"南部"},
-            {year:110,plant:"大林",unit:"#5",start:"2021-01-26",end:"2021-03-04",days:37,type:"火力",region:"南部"},
-            {year:110,plant:"大潭",unit:"GT32",start:"2020-11-10",end:"2021-02-27",days:110,type:"複循環",region:"北部"},
-            {year:110,plant:"大潭",unit:"GT31",start:"2020-11-21",end:"2021-03-13",days:113,type:"複循環",region:"北部"},
-            {year:110,plant:"大潭",unit:"CC#5 GT51",start:"2021-01-30",end:"2021-05-03",days:94,type:"複循環",region:"北部"},
-            {year:110,plant:"大潭",unit:"CC#5 GT52",start:"2021-02-04",end:"2021-03-28",days:53,type:"複循環",region:"北部"},
-            {year:110,plant:"大潭",unit:"CC#4 GT41",start:"2020-12-11",end:"2021-03-02",days:82,type:"複循環",region:"北部"},
-            {year:110,plant:"大潭",unit:"CC#4 GT42",start:"2020-12-08",end:"2021-02-27",days:82,type:"複循環",region:"北部"},
-            {year:110,plant:"大潭",unit:"CC#6 GT62",start:"2021-04-11",end:"2021-06-28",days:79,type:"複循環",region:"北部"},
-            {year:110,plant:"大潭",unit:"CC#6 GT61",start:"2021-04-30",end:"2021-07-16",days:78,type:"複循環",region:"北部"},
-            {year:110,plant:"通霄",unit:"GT61",start:"2021-01-16",end:"2021-03-18",days:62,type:"複循環",region:"中部"},
-            {year:110,plant:"通霄",unit:"GT62",start:"2021-01-16",end:"2021-04-16",days:91,type:"複循環",region:"中部"},
-            {year:110,plant:"興達",unit:"CC#1 GT11",start:"2020-12-11",end:"2021-02-06",days:58,type:"複循環",region:"南部"},
-            {year:110,plant:"興達",unit:"CC#1 GT12",start:"2020-12-19",end:"2021-02-18",days:62,type:"複循環",region:"南部"},
-            {year:110,plant:"興達",unit:"CC#2 GT21",start:"2021-04-01",end:"2021-06-12",days:73,type:"複循環",region:"南部"},
-            {year:110,plant:"興達",unit:"CC#2 GT22",start:"2021-04-09",end:"2021-06-20",days:73,type:"複循環",region:"南部"},
-            {year:110,plant:"興達",unit:"CC#3 GT31",start:"2021-09-01",end:"2021-10-31",days:61,type:"複循環",region:"南部"},
-            {year:110,plant:"南部",unit:"GT21",start:"2021-01-17",end:"2021-04-03",days:77,type:"複循環",region:"南部"},
-            {year:110,plant:"南部",unit:"GT22",start:"2021-01-29",end:"2021-04-10",days:72,type:"複循環",region:"南部"},
-            {year:110,plant:"明潭",unit:"#1",start:"2020-11-02",end:"2021-01-27",days:87,type:"水力",region:"中部"},
-            {year:110,plant:"明潭",unit:"#2",start:"2020-10-12",end:"2021-03-15",days:155,type:"水力",region:"中部"},
-            {year:110,plant:"明潭",unit:"#5",start:"2021-08-21",end:"2021-09-30",days:41,type:"水力",region:"中部"},
-            {year:110,plant:"明潭",unit:"#6",start:"2021-03-20",end:"2021-05-14",days:56,type:"水力",region:"中部"},
-            {year:110,plant:"觀二",unit:"#1",start:"2020-11-27",end:"2021-04-22",days:177,type:"水力",region:"中部"},
-            {year:110,plant:"觀二",unit:"#2",start:"2020-12-09",end:"2021-01-27",days:50,type:"水力",region:"中部"},
-            {year:110,plant:"谷關",unit:"#3",start:"2021-03-22",end:"2021-05-28",days:68,type:"水力",region:"中部"},
-            {year:110,plant:"天輪",unit:"#3",start:"2021-03-08",end:"2021-04-22",days:46,type:"水力",region:"中部"},
-            {year:110,plant:"和平",unit:"#1",start:"2021-01-01",end:"2021-01-30",days:30,type:"IPP",region:"北部"},
-            {year:110,plant:"和平",unit:"#2",start:"2020-10-23",end:"2021-02-19",days:120,type:"IPP",region:"北部"},
-            {year:110,plant:"麥寮",unit:"#1",start:"2020-12-21",end:"2021-01-18",days:29,type:"IPP",region:"南部"},
-            {year:110,plant:"麥寮",unit:"#2",start:"2020-11-20",end:"2021-02-15",days:88,type:"IPP",region:"南部"},
-            {year:110,plant:"麥寮",unit:"#3",start:"2021-01-20",end:"2021-05-19",days:120,type:"IPP",region:"南部"},
-            {year:110,plant:"海湖",unit:"#2",start:"2021-03-28",end:"2021-05-09",days:43,type:"IPP",region:"北部"},
-            {year:110,plant:"嘉惠",unit:"#1",start:"2021-02-11",end:"2021-03-30",days:48,type:"IPP",region:"中部"},
-            // 111年度資料
-            {year:111,plant:"大潭",unit:"GT52",start:"2022-01-01",end:"2022-03-26",days:85,type:"複循環",region:"北部"},
-            {year:111,plant:"大潭",unit:"GT51",start:"2022-02-11",end:"2022-05-02",days:81,type:"複循環",region:"北部"},
-            {year:111,plant:"大潭",unit:"GT41",start:"2021-12-11",end:"2022-03-02",days:82,type:"複循環",region:"北部"},
-            {year:111,plant:"大潭",unit:"GT42",start:"2021-12-08",end:"2022-02-27",days:82,type:"複循環",region:"北部"},
-            {year:111,plant:"大潭",unit:"GT23",start:"2022-01-01",end:"2022-04-02",days:92,type:"複循環",region:"北部"},
-            {year:111,plant:"林口",unit:"#3",start:"2021-12-01",end:"2022-03-03",days:94,type:"火力",region:"北部"},
-            {year:111,plant:"林口",unit:"#1",start:"2022-04-01",end:"2022-04-20",days:20,type:"火力",region:"北部"},
-            {year:111,plant:"核二",unit:"#2",start:"2022-02-26",end:"2022-04-08",days:42,type:"核能",region:"北部"},
-            {year:111,plant:"台中",unit:"#4",start:"2021-12-20",end:"2022-02-07",days:50,type:"火力",region:"中部"},
-            {year:111,plant:"台中",unit:"#10",start:"2022-02-05",end:"2022-05-07",days:92,type:"火力",region:"中部"},
-            {year:111,plant:"台中",unit:"#1",start:"2022-05-17",end:"2022-07-13",days:58,type:"火力",region:"中部"},
-            {year:111,plant:"台中",unit:"#7",start:"2022-07-14",end:"2022-10-22",days:101,type:"火力",region:"中部"},
-            {year:111,plant:"台中",unit:"#8",start:"2022-09-22",end:"2022-12-06",days:76,type:"火力",region:"中部"},
-            {year:111,plant:"大林",unit:"#1",start:"2021-12-19",end:"2022-03-16",days:88,type:"火力",region:"南部"},
-            {year:111,plant:"核三",unit:"#1",start:"2021-11-19",end:"2022-01-08",days:51,type:"核能",region:"南部"},
-            {year:111,plant:"興達",unit:"CC#4",start:"2021-10-21",end:"2021-12-24",days:65,type:"複循環",region:"南部"},
-            {year:111,plant:"興達",unit:"GT21",start:"2021-11-17",end:"2022-01-28",days:73,type:"複循環",region:"南部"},
-            {year:111,plant:"南部",unit:"GT11",start:"2021-12-29",end:"2022-03-17",days:79,type:"複循環",region:"南部"},
-            {year:111,plant:"南部",unit:"GT12",start:"2022-01-01",end:"2022-03-20",days:79,type:"複循環",region:"南部"},
-            {year:111,plant:"和平",unit:"#2",start:"2021-10-23",end:"2022-02-19",days:119,type:"IPP",region:"北部"},
-            {year:111,plant:"麥寮",unit:"#1",start:"2021-11-04",end:"2022-01-19",days:77,type:"IPP",region:"南部"},
-            {year:111,plant:"明潭",unit:"#4",start:"2022-02-23",end:"2022-05-10",days:77,type:"水力",region:"中部"},
-            {year:111,plant:"觀二",unit:"#4",start:"2021-11-01",end:"2022-03-27",days:147,type:"水力",region:"中部"},
-            {year:111,plant:"觀二",unit:"#1",start:"2021-11-27",end:"2022-04-22",days:147,type:"水力",region:"中部"},
-            {year:111,plant:"天輪",unit:"#2",start:"2021-12-15",end:"2022-02-14",days:62,type:"水力",region:"中部"},
-            {year:111,plant:"馬鞍",unit:"#2",start:"2021-10-11",end:"2021-12-25",days:76,type:"水力",region:"中部"},
-            // 112年度資料
-            {year:112,plant:"和平",unit:"#2",start:"2023-01-21",end:"2023-02-19",days:30,type:"IPP",region:"北部"},
-            {year:112,plant:"和平",unit:"#1",start:"2022-12-10",end:"2023-03-03",days:84,type:"IPP",region:"北部"},
-            {year:112,plant:"林口",unit:"#2",start:"2022-11-01",end:"2023-01-27",days:88,type:"火力",region:"北部"},
-            {year:112,plant:"林口",unit:"#1",start:"2023-02-09",end:"2023-05-08",days:88,type:"火力",region:"北部"},
-            {year:112,plant:"協和",unit:"#4",start:"2023-01-13",end:"2023-03-18",days:65,type:"火力",region:"北部"},
-            {year:112,plant:"大潭",unit:"GT22",start:"2023-01-30",end:"2023-05-10",days:100,type:"複循環",region:"北部"},
-            {year:112,plant:"大潭",unit:"GT31",start:"2022-10-07",end:"2023-01-04",days:90,type:"複循環",region:"北部"},
-            {year:112,plant:"大潭",unit:"GT32",start:"2023-09-13",end:"2023-12-12",days:91,type:"複循環",region:"北部"},
-            {year:112,plant:"大潭",unit:"GT21",start:"2022-12-14",end:"2023-03-02",days:79,type:"複循環",region:"北部"},
-            {year:112,plant:"台中",unit:"#3",start:"2023-01-13",end:"2023-03-31",days:78,type:"火力",region:"中部"},
-            {year:112,plant:"台中",unit:"#4",start:"2022-11-21",end:"2023-01-20",days:61,type:"火力",region:"中部"},
-            {year:112,plant:"台中",unit:"#5 AQCS",start:"2023-08-12",end:"2024-04-07",days:239,type:"火力",region:"中部"},
-            {year:112,plant:"台中",unit:"#6 AQCS",start:"2023-10-01",end:"2024-05-27",days:209,type:"火力",region:"中部"},
-            {year:112,plant:"台中",unit:"#9",start:"2023-06-13",end:"2023-08-13",days:62,type:"火力",region:"中部"},
-            {year:112,plant:"通霄",unit:"GT21",start:"2023-01-05",end:"2023-03-06",days:61,type:"複循環",region:"中部"},
-            {year:112,plant:"通霄",unit:"GT22",start:"2023-01-10",end:"2023-03-11",days:61,type:"複循環",region:"中部"},
-            {year:112,plant:"通霄",unit:"GT11",start:"2023-04-25",end:"2023-07-13",days:80,type:"複循環",region:"中部"},
-            {year:112,plant:"通霄",unit:"GT12",start:"2023-04-28",end:"2023-07-16",days:80,type:"複循環",region:"中部"},
-            {year:112,plant:"大林",unit:"#1",start:"2022-12-11",end:"2023-03-12",days:91,type:"火力",region:"南部"},
-            {year:112,plant:"大林",unit:"#2",start:"2022-12-15",end:"2023-03-17",days:93,type:"火力",region:"南部"},
-            {year:112,plant:"大林",unit:"#5",start:"2023-01-01",end:"2023-04-01",days:91,type:"火力",region:"南部"},
-            {year:112,plant:"南部",unit:"GT31",start:"2023-04-01",end:"2023-06-13",days:74,type:"複循環",region:"南部"},
-            {year:112,plant:"南部",unit:"GT32",start:"2023-04-08",end:"2023-06-19",days:73,type:"複循環",region:"南部"},
-            {year:112,plant:"核三",unit:"#1",start:"2022-11-19",end:"2023-01-08",days:51,type:"核能",region:"南部"},
-            {year:112,plant:"核三",unit:"#2",start:"2023-03-25",end:"2023-05-11",days:48,type:"核能",region:"南部"},
-            {year:112,plant:"麥寮",unit:"#1",start:"2022-11-04",end:"2023-01-19",days:77,type:"IPP",region:"南部"},
-            {year:112,plant:"興達",unit:"GT43",start:"2022-11-06",end:"2023-01-09",days:65,type:"複循環",region:"南部"},
-            {year:112,plant:"觀二",unit:"#4",start:"2022-11-01",end:"2023-03-11",days:131,type:"水力",region:"中部"},
-            {year:112,plant:"明潭",unit:"#4",start:"2022-12-04",end:"2023-01-18",days:46,type:"水力",region:"中部"},
-            {year:112,plant:"明潭",unit:"#3",start:"2023-03-15",end:"2023-05-14",days:61,type:"水力",region:"中部"},
-            {year:112,plant:"嘉惠",unit:"#1",start:"2023-01-11",end:"2023-01-30",days:20,type:"IPP",region:"中部"},
-            {year:112,plant:"豐德",unit:"#2",start:"2023-11-19",end:"2023-12-12",days:24,type:"IPP",region:"中部"},
-            {year:112,plant:"星彰",unit:"",start:"2023-10-21",end:"2023-11-29",days:40,type:"IPP",region:"中部"},
-            // 113年度資料
-            {year:113,plant:"和平",unit:"#1",start:"2023-12-01",end:"2024-02-21",days:83,type:"IPP",region:"北部"},
-            {year:113,plant:"林口",unit:"#2",start:"2023-11-01",end:"2024-01-19",days:80,type:"火力",region:"北部"},
-            {year:113,plant:"大潭",unit:"GT71",start:"2024-03-02",end:"2024-05-06",days:65,type:"複循環",region:"北部"},
-            {year:113,plant:"大潭",unit:"GT72",start:"2024-02-23",end:"2024-04-28",days:66,type:"複循環",region:"北部"},
-            {year:113,plant:"大潭",unit:"GT61",start:"2024-03-09",end:"2024-05-04",days:56,type:"複循環",region:"北部"},
-            {year:113,plant:"大潭",unit:"GT62",start:"2024-03-05",end:"2024-04-30",days:56,type:"複循環",region:"北部"},
-            {year:113,plant:"大潭",unit:"GT31",start:"2023-10-07",end:"2024-01-04",days:89,type:"複循環",region:"北部"},
-            {year:113,plant:"台中",unit:"#9 AQCS",start:"2024-07-13",end:"2025-04-08",days:269,type:"火力",region:"中部"},
-            {year:113,plant:"台中",unit:"#1",start:"2024-06-03",end:"2024-07-18",days:45,type:"火力",region:"中部"},
-            {year:113,plant:"台中",unit:"#7",start:"2023-10-01",end:"2023-11-14",days:44,type:"火力",region:"中部"},
-            {year:113,plant:"台中",unit:"#8",start:"2023-11-04",end:"2023-12-14",days:40,type:"火力",region:"中部"},
-            {year:113,plant:"大林",unit:"#1",start:"2023-12-09",end:"2024-03-06",days:88,type:"火力",region:"南部"},
-            {year:113,plant:"大林",unit:"#6",start:"2024-03-30",end:"2024-05-29",days:60,type:"火力",region:"南部"},
-            {year:113,plant:"大林",unit:"#2",start:"2023-12-11",end:"2024-03-13",days:93,type:"火力",region:"南部"},
-            {year:113,plant:"興達",unit:"GT51",start:"2024-01-23",end:"2024-04-18",days:86,type:"複循環",region:"南部"},
-            {year:113,plant:"興達",unit:"GT52",start:"2024-01-24",end:"2024-04-20",days:87,type:"複循環",region:"南部"},
-            {year:113,plant:"興達",unit:"CC#1",start:"2023-12-01",end:"2024-03-16",days:106,type:"複循環",region:"南部"},
-            {year:113,plant:"核三",unit:"#2",start:"2023-10-21",end:"2023-11-30",days:40,type:"核能",region:"南部"},
-            {year:113,plant:"明潭",unit:"#5",start:"2024-01-15",end:"2024-04-09",days:85,type:"水力",region:"中部"},
-            {year:113,plant:"通霄",unit:"#2",start:"2024-03-30",end:"2024-06-19",days:81,type:"複循環",region:"中部"},
-            {year:113,plant:"通霄",unit:"GT11",start:"2023-12-24",end:"2024-01-23",days:30,type:"複循環",region:"中部"},
-            {year:113,plant:"通霄",unit:"GT12",start:"2023-12-27",end:"2024-01-26",days:30,type:"複循環",region:"中部"},
-            {year:113,plant:"南部",unit:"GT31",start:"2024-05-19",end:"2024-05-30",days:11,type:"複循環",region:"南部"},
-            {year:113,plant:"南部",unit:"GT32",start:"2024-05-28",end:"2024-06-08",days:11,type:"複循環",region:"南部"},
-            {year:113,plant:"和平",unit:"#2",start:"2024-04-04",end:"2024-05-12",days:38,type:"IPP",region:"北部"},
-            {year:113,plant:"嘉惠",unit:"2期",start:"2024-04-04",end:"2024-05-08",days:34,type:"IPP",region:"中部"},
-            {year:113,plant:"麥寮",unit:"#2",start:"2024-04-21",end:"2024-04-25",days:4,type:"IPP",region:"南部"},
-            {year:113,plant:"豐德",unit:"#1",start:"2023-11-10",end:"2023-12-19",days:39,type:"IPP",region:"中部"},
-            {year:113,plant:"星彰",unit:"",start:"2024-09-01",end:"2024-09-25",days:25,type:"IPP",region:"中部"},
-            // 114年度資料
-            {year:114,plant:"林口",unit:"#3",start:"2024-11-02",end:"2025-02-03",days:94,type:"火力",region:"北部"},
-            {year:114,plant:"林口",unit:"#1",start:"2025-02-26",end:"2025-05-25",days:88,type:"火力",region:"北部"},
-            {year:114,plant:"和平",unit:"#1",start:"2025-01-28",end:"2025-03-07",days:38,type:"IPP",region:"北部"},
-            {year:114,plant:"和平",unit:"#2",start:"2025-04-04",end:"2025-05-03",days:29,type:"IPP",region:"北部"},
-            {year:114,plant:"大潭",unit:"GT13",start:"2025-02-28",end:"2025-05-14",days:75,type:"複循環",region:"北部"},
-            {year:114,plant:"大潭",unit:"GT11",start:"2025-02-03",end:"2025-05-20",days:106,type:"複循環",region:"北部"},
-            {year:114,plant:"大潭",unit:"GT51",start:"2025-02-23",end:"2025-04-30",days:66,type:"複循環",region:"北部"},
-            {year:114,plant:"大潭",unit:"GT52",start:"2025-02-19",end:"2025-04-26",days:66,type:"複循環",region:"北部"},
-            {year:114,plant:"大潭",unit:"#8",start:"2024-11-30",end:"2025-03-24",days:115,type:"複循環",region:"北部"},
-            {year:114,plant:"大潭",unit:"ST2",start:"2025-04-23",end:"2025-06-06",days:44,type:"複循環",region:"北部"},
-            {year:114,plant:"大潭",unit:"GT22",start:"2025-04-24",end:"2025-05-08",days:14,type:"複循環",region:"北部"},
-            {year:114,plant:"台中",unit:"#9 AQCS",start:"2024-07-13",end:"2025-04-08",days:269,type:"火力",region:"中部"},
-            {year:114,plant:"台中",unit:"#10",start:"2025-01-01",end:"2025-09-27",days:300,type:"火力",region:"中部"},
-            {year:114,plant:"台中",unit:"#5",start:"2025-10-01",end:"2025-12-21",days:81,type:"火力",region:"中部"},
-            {year:114,plant:"台中",unit:"#3",start:"2025-01-14",end:"2025-03-20",days:65,type:"火力",region:"中部"},
-            {year:114,plant:"台中",unit:"#4",start:"2024-12-22",end:"2025-02-10",days:50,type:"火力",region:"中部"},
-            {year:114,plant:"大林",unit:"#1",start:"2024-12-05",end:"2025-03-07",days:92,type:"火力",region:"南部"},
-            {year:114,plant:"大林",unit:"#2",start:"2024-12-12",end:"2025-03-14",days:93,type:"火力",region:"南部"},
-            {year:114,plant:"興達",unit:"CC#2",start:"2025-03-17",end:"2025-06-30",days:105,type:"複循環",region:"南部"},
-            {year:114,plant:"興達",unit:"CC#3",start:"2025-11-01",end:"2026-02-14",days:105,type:"複循環",region:"南部"},
-            {year:114,plant:"興達",unit:"GT11",start:"2024-12-01",end:"2025-03-12",days:101,type:"複循環",region:"南部"},
-            {year:114,plant:"興達",unit:"GT12",start:"2024-12-01",end:"2025-03-14",days:103,type:"複循環",region:"南部"},
-            {year:114,plant:"興達",unit:"GT13",start:"2024-12-01",end:"2025-03-16",days:105,type:"複循環",region:"南部"},
-            {year:114,plant:"興達",unit:"ST1",start:"2024-12-16",end:"2025-02-21",days:67,type:"複循環",region:"南部"},
-            {year:114,plant:"通霄",unit:"GT21",start:"2025-05-27",end:"2025-07-01",days:35,type:"複循環",region:"中部"},
-            {year:114,plant:"通霄",unit:"GT22",start:"2025-05-27",end:"2025-07-04",days:38,type:"複循環",region:"中部"},
-            {year:114,plant:"通霄",unit:"#1",start:"2024-12-23",end:"2025-02-11",days:50,type:"複循環",region:"中部"},
-            {year:114,plant:"南部",unit:"GT21",start:"2025-02-08",end:"2025-05-14",days:95,type:"複循環",region:"南部"},
-            {year:114,plant:"南部",unit:"GT22",start:"2025-03-08",end:"2025-05-20",days:73,type:"複循環",region:"南部"},
-            {year:114,plant:"南部",unit:"ST2",start:"2025-03-08",end:"2025-05-14",days:67,type:"複循環",region:"南部"},
-            {year:114,plant:"明潭",unit:"#5",start:"2025-10-21",end:"2026-03-30",days:161,type:"水力",region:"中部"},
-            {year:114,plant:"明潭",unit:"#6",start:"2024-12-13",end:"2025-05-28",days:166,type:"水力",region:"中部"},
-            {year:114,plant:"麥寮",unit:"#3",start:"2025-05-01",end:"2025-05-03",days:2,type:"IPP",region:"南部"},
-            {year:114,plant:"嘉惠",unit:"GT11/GT12/ST1",start:"2025-01-26",end:"2025-02-24",days:29,type:"IPP",region:"中部"},
-            {year:114,plant:"豐德",unit:"#2",start:"2025-10-21",end:"2025-11-29",days:39,type:"IPP",region:"中部"},
-            {year:114,plant:"新桃",unit:"GT1B",start:"2024-12-31",end:"2025-01-30",days:30,type:"IPP",region:"北部"},
-            {year:114,plant:"星元",unit:"GT12",start:"2025-04-09",end:"2025-05-23",days:44,type:"IPP",region:"北部"},
-            {year:114,plant:"觀二",unit:"#2",start:"2025-02-26",end:"2025-05-10",days:72,type:"水力",region:"中部"},
-            {year:114,plant:"興達",unit:"#3",start:"2024-11-01",end:"2026-01-31",days:457,type:"火力",region:"南部"},
-            {year:114,plant:"興達",unit:"#4",start:"2025-10-01",end:"2025-11-29",days:59,type:"火力",region:"南部"},
-            // 115年度資料
-            {year:115,plant:"大潭",unit:"CC#1 GT11",start:"2025-10-01",end:"2026-02-28",days:150,type:"複循環",region:"北部"},
-            {year:115,plant:"大潭",unit:"CC#1 GT12",start:"2025-12-11",end:"2026-02-28",days:79,type:"複循環",region:"北部"},
-            {year:115,plant:"大潭",unit:"CC#1 ST1",start:"2025-12-11",end:"2026-02-28",days:79,type:"複循環",region:"北部"},
-            {year:115,plant:"大潭",unit:"CC#3 GT31",start:"2026-09-19",end:"2026-11-14",days:56,type:"複循環",region:"北部"},
-            {year:115,plant:"大潭",unit:"CC#3 GT32",start:"2026-09-01",end:"2026-11-02",days:62,type:"複循環",region:"北部"},
-            {year:115,plant:"大潭",unit:"CC#3 ST3",start:"2026-09-19",end:"2026-10-19",days:30,type:"複循環",region:"北部"},
-            {year:115,plant:"大潭",unit:"CC#8 GT81",start:"2025-11-30",end:"2026-03-09",days:99,type:"複循環",region:"北部"},
-            {year:115,plant:"大潭",unit:"CC#8 GT82",start:"2025-12-10",end:"2026-03-19",days:99,type:"複循環",region:"北部"},
-            {year:115,plant:"大潭",unit:"CC#8 ST8",start:"2025-11-30",end:"2026-03-28",days:118,type:"複循環",region:"北部"},
-            {year:115,plant:"大潭",unit:"CC#9 GT91",start:"2026-10-21",end:"2027-01-18",days:89,type:"複循環",region:"北部"},
-            {year:115,plant:"大潭",unit:"CC#9 GT92",start:"2026-10-31",end:"2027-01-28",days:89,type:"複循環",region:"北部"},
-            {year:115,plant:"大潭",unit:"CC#9 ST9",start:"2026-10-21",end:"2027-02-12",days:114,type:"複循環",region:"北部"},
-            {year:115,plant:"大潭",unit:"GT22",start:"2026-12-23",end:"2027-03-12",days:79,type:"複循環",region:"北部"},
-            {year:115,plant:"協和",unit:"#3",start:"2026-10-17",end:"2026-12-15",days:59,type:"火力",region:"北部"},
-            {year:115,plant:"林口",unit:"#2",start:"2025-10-31",end:"2026-03-02",days:122,type:"火力",region:"北部"},
-            {year:115,plant:"林口",unit:"#3",start:"2026-11-30",end:"2027-03-02",days:92,type:"火力",region:"北部"},
-            {year:115,plant:"和平",unit:"#2",start:"2026-02-16",end:"2026-03-17",days:29,type:"IPP",region:"北部"},
-            {year:115,plant:"和平",unit:"#1",start:"2026-04-11",end:"2026-05-25",days:44,type:"IPP",region:"北部"},
-            {year:115,plant:"核二",unit:"#1",start:"2026-05-01",end:"2026-08-31",days:122,type:"核能",region:"北部"},
-            {year:115,plant:"通霄",unit:"CC#3 GT31",start:"2026-03-15",end:"2026-04-15",days:31,type:"複循環",region:"中部"},
-            {year:115,plant:"通霄",unit:"CC#3 GT32",start:"2026-03-11",end:"2026-04-11",days:31,type:"複循環",region:"中部"},
-            {year:115,plant:"通霄",unit:"CC#3 ST3",start:"2026-03-15",end:"2026-04-11",days:27,type:"複循環",region:"中部"},
-            {year:115,plant:"通霄",unit:"CC#1 GT11",start:"2026-04-16",end:"2026-06-10",days:55,type:"複循環",region:"中部"},
-            {year:115,plant:"通霄",unit:"CC#1 GT12",start:"2026-04-19",end:"2026-06-10",days:52,type:"複循環",region:"中部"},
-            {year:115,plant:"通霄",unit:"CC#1 ST1",start:"2026-04-19",end:"2026-06-10",days:52,type:"複循環",region:"中部"},
-            {year:115,plant:"通霄",unit:"CC#6 GT61",start:"2026-09-24",end:"2026-12-08",days:75,type:"複循環",region:"中部"},
-            {year:115,plant:"通霄",unit:"CC#6 GT62",start:"2026-09-21",end:"2026-12-07",days:77,type:"複循環",region:"中部"},
-            {year:115,plant:"通霄",unit:"CC#6 ST6",start:"2026-09-24",end:"2026-12-07",days:74,type:"複循環",region:"中部"},
-            {year:115,plant:"通霄",unit:"CC#2 GT21",start:"2026-12-01",end:"2027-01-25",days:55,type:"複循環",region:"中部"},
-            {year:115,plant:"通霄",unit:"CC#2 GT22",start:"2026-12-04",end:"2027-01-28",days:55,type:"複循環",region:"中部"},
-            {year:115,plant:"通霄",unit:"CC#2 ST2",start:"2026-12-04",end:"2027-01-25",days:52,type:"複循環",region:"中部"},
-            {year:115,plant:"台中",unit:"GT#4",start:"2026-03-07",end:"2026-05-31",days:85,type:"火力",region:"中部"},
-            {year:115,plant:"台中",unit:"#8",start:"2026-02-02",end:"2026-03-29",days:55,type:"火力",region:"中部"},
-            {year:115,plant:"台中",unit:"#7",start:"2026-10-01",end:"2026-12-21",days:81,type:"火力",region:"中部"},
-            {year:115,plant:"台中",unit:"#6",start:"2026-03-26",end:"2026-06-15",days:81,type:"火力",region:"中部"},
-            {year:115,plant:"台中",unit:"#4",start:"2025-12-20",end:"2026-02-08",days:50,type:"火力",region:"中部"},
-            {year:115,plant:"台中",unit:"#9",start:"2026-12-22",end:"2027-03-17",days:85,type:"火力",region:"中部"},
-            {year:115,plant:"豐德",unit:"GT11",start:"2026-11-15",end:"2026-12-17",days:32,type:"IPP",region:"中部"},
-            {year:115,plant:"豐德",unit:"GT12",start:"2026-11-15",end:"2026-12-08",days:23,type:"IPP",region:"中部"},
-            {year:115,plant:"豐德",unit:"ST1",start:"2026-11-15",end:"2026-12-08",days:23,type:"IPP",region:"中部"},
-            {year:115,plant:"嘉惠",unit:"ST2",start:"2026-03-24",end:"2026-04-06",days:13,type:"IPP",region:"中部"},
-            {year:115,plant:"嘉惠",unit:"ST1",start:"2026-02-14",end:"2026-02-22",days:8,type:"IPP",region:"中部"},
-            {year:115,plant:"核三",unit:"#1",start:"2026-07-01",end:"2026-09-30",days:91,type:"核能",region:"南部"},
-            {year:115,plant:"核三",unit:"#2",start:"2026-07-01",end:"2026-09-30",days:91,type:"核能",region:"南部"},
-            {year:115,plant:"大林",unit:"#6",start:"2026-03-28",end:"2026-05-16",days:49,type:"火力",region:"南部"},
-            {year:115,plant:"大林",unit:"#1",start:"2025-12-30",end:"2026-03-23",days:83,type:"火力",region:"南部"},
-            {year:115,plant:"大林",unit:"#2",start:"2026-12-09",end:"2027-03-11",days:92,type:"火力",region:"南部"},
-            {year:115,plant:"南部",unit:"CC#4",start:"2026-10-09",end:"2026-12-22",days:74,type:"複循環",region:"南部"},
-            {year:115,plant:"南部",unit:"CC#1 GT11",start:"2026-01-18",end:"2026-04-17",days:89,type:"複循環",region:"南部"},
-            {year:115,plant:"南部",unit:"CC#1 GT12",start:"2026-02-15",end:"2026-05-04",days:78,type:"複循環",region:"南部"},
-            {year:115,plant:"南部",unit:"CC#1 ST1",start:"2026-02-15",end:"2026-04-09",days:53,type:"複循環",region:"南部"},
-            {year:115,plant:"興達",unit:"#4",start:"2025-10-01",end:"2026-03-09",days:159,type:"火力",region:"南部"},
-            {year:115,plant:"興達",unit:"#1",start:"2026-02-09",end:"2026-05-30",days:110,type:"火力",region:"南部"},
-            {year:115,plant:"興達",unit:"#2",start:"2026-02-09",end:"2026-03-31",days:50,type:"火力",region:"南部"},
-            {year:115,plant:"興達",unit:"CC#3 GT31",start:"2025-11-01",end:"2026-02-05",days:96,type:"複循環",region:"南部"},
-            {year:115,plant:"興達",unit:"CC#3 GT32",start:"2025-11-01",end:"2026-02-06",days:97,type:"複循環",region:"南部"},
-            {year:115,plant:"興達",unit:"CC#3 GT33",start:"2025-11-01",end:"2026-02-11",days:102,type:"複循環",region:"南部"},
-            {year:115,plant:"興達",unit:"CC#3 ST3",start:"2025-11-28",end:"2026-01-29",days:62,type:"複循環",region:"南部"},
-            {year:115,plant:"興達",unit:"CC#4 GT41",start:"2026-03-21",end:"2026-06-26",days:97,type:"複循環",region:"南部"},
-            {year:115,plant:"興達",unit:"CC#4 GT42",start:"2026-03-21",end:"2026-06-28",days:99,type:"複循環",region:"南部"},
-            {year:115,plant:"興達",unit:"CC#4 GT43",start:"2026-03-21",end:"2026-06-30",days:101,type:"複循環",region:"南部"},
-            {year:115,plant:"興達",unit:"CC#4 ST4",start:"2026-04-14",end:"2026-06-15",days:62,type:"複循環",region:"南部"},
-            // 116年度資料
-            {year:116,plant:"林口",unit:"#1",start:"2027-03-03",end:"2027-05-29",days:87,type:"火力",region:"北部"},
-            {year:116,plant:"林口",unit:"#2",start:"2027-12-01",end:"2028-03-04",days:94,type:"火力",region:"北部"},
-            {year:116,plant:"大潭",unit:"CC#2 GT21",start:"2027-10-01",end:"2027-12-17",days:77,type:"複循環",region:"北部"},
-            {year:116,plant:"大潭",unit:"CC#2 GT23",start:"2027-09-11",end:"2027-11-28",days:78,type:"複循環",region:"北部"},
-            {year:116,plant:"大潭",unit:"CC#2 ST2",start:"2027-10-01",end:"2027-11-14",days:44,type:"複循環",region:"北部"},
-            {year:116,plant:"大潭",unit:"CC#2 GT22",start:"2027-09-27",end:"2027-10-27",days:30,type:"複循環",region:"北部"},
-            {year:116,plant:"大潭",unit:"CC#2 ST2-MTR",start:"2027-09-11",end:"2027-12-17",days:97,type:"複循環",region:"北部"},
-            {year:116,plant:"大潭",unit:"CC#5 GT51",start:"2027-12-15",end:"2028-03-08",days:84,type:"複循環",region:"北部"},
-            {year:116,plant:"大潭",unit:"CC#5 GT52",start:"2027-12-11",end:"2028-03-04",days:84,type:"複循環",region:"北部"},
-            {year:116,plant:"大潭",unit:"CC#5 ST5",start:"2027-12-15",end:"2028-01-13",days:29,type:"複循環",region:"北部"},
-            {year:116,plant:"大潭",unit:"CC#6 GT61",start:"2027-01-16",end:"2027-04-11",days:85,type:"複循環",region:"北部"},
-            {year:116,plant:"大潭",unit:"CC#6 GT62",start:"2027-01-22",end:"2027-04-17",days:85,type:"複循環",region:"北部"},
-            {year:116,plant:"大潭",unit:"CC#6 ST6",start:"2027-01-22",end:"2027-03-11",days:48,type:"複循環",region:"北部"},
-            {year:116,plant:"大潭",unit:"CC#4 GT41",start:"2027-04-26",end:"2027-06-21",days:56,type:"複循環",region:"北部"},
-            {year:116,plant:"大潭",unit:"CC#4 GT42",start:"2027-04-22",end:"2027-06-17",days:56,type:"複循環",region:"北部"},
-            {year:116,plant:"大潭",unit:"CC#4 ST4",start:"2027-04-26",end:"2027-06-09",days:44,type:"複循環",region:"北部"},
-            {year:116,plant:"大潭",unit:"CC#7 GT71",start:"2027-03-28",end:"2027-05-27",days:60,type:"複循環",region:"北部"},
-            {year:116,plant:"大潭",unit:"CC#7 GT72",start:"2027-04-03",end:"2027-06-02",days:60,type:"複循環",region:"北部"},
-            {year:116,plant:"大潭",unit:"CC#7 ST7",start:"2027-04-03",end:"2027-05-26",days:53,type:"複循環",region:"北部"},
-            {year:116,plant:"協和",unit:"#4",start:"2027-10-02",end:"2027-12-15",days:74,type:"火力",region:"北部"},
-            {year:116,plant:"和平",unit:"#2",start:"2027-02-05",end:"2027-03-21",days:44,type:"IPP",region:"北部"},
-            {year:116,plant:"和平",unit:"#1",start:"2027-03-28",end:"2027-05-02",days:35,type:"IPP",region:"北部"},
-            {year:116,plant:"通霄",unit:"CC#3 GT31",start:"2027-02-28",end:"2027-04-25",days:56,type:"複循環",region:"中部"},
-            {year:116,plant:"通霄",unit:"CC#3 GT32",start:"2027-03-03",end:"2027-04-28",days:56,type:"複循環",region:"中部"},
-            {year:116,plant:"通霄",unit:"CC#3 ST3",start:"2027-03-03",end:"2027-04-25",days:53,type:"複循環",region:"中部"},
-            {year:116,plant:"通霄",unit:"CC#1 GT11",start:"2027-11-18",end:"2027-12-18",days:30,type:"複循環",region:"中部"},
-            {year:116,plant:"通霄",unit:"CC#1 GT12",start:"2027-11-20",end:"2027-12-20",days:30,type:"複循環",region:"中部"},
-            {year:116,plant:"通霄",unit:"CC#1 ST1",start:"2027-11-20",end:"2027-12-18",days:28,type:"複循環",region:"中部"},
-            {year:116,plant:"台中",unit:"新CC#1 GT11",start:"2027-11-01",end:"2028-02-08",days:99,type:"複循環",region:"中部"},
-            {year:116,plant:"台中",unit:"新CC#1 GT12",start:"2027-11-08",end:"2028-02-15",days:99,type:"複循環",region:"中部"},
-            {year:116,plant:"台中",unit:"新CC#1 ST1",start:"2027-11-08",end:"2028-02-15",days:99,type:"複循環",region:"中部"},
-            {year:116,plant:"台中",unit:"GT#3",start:"2027-01-01",end:"2027-03-31",days:89,type:"火力",region:"中部"},
-            {year:116,plant:"台中",unit:"#3",start:"2027-07-15",end:"2027-08-28",days:44,type:"火力",region:"中部"},
-            {year:116,plant:"台中",unit:"#4",start:"2027-08-29",end:"2027-10-29",days:61,type:"火力",region:"中部"},
-            {year:116,plant:"台中",unit:"#5",start:"2027-10-30",end:"2027-12-19",days:50,type:"火力",region:"中部"},
-            {year:116,plant:"台中",unit:"#10",start:"2027-03-18",end:"2027-05-08",days:51,type:"火力",region:"中部"},
-            {year:116,plant:"台中",unit:"#8",start:"2027-12-20",end:"2028-02-23",days:65,type:"火力",region:"中部"},
-            {year:116,plant:"星元",unit:"GT11",start:"2027-02-04",end:"2027-03-12",days:36,type:"IPP",region:"中部"},
-            {year:116,plant:"星元",unit:"ST",start:"2027-02-04",end:"2027-02-18",days:14,type:"IPP",region:"中部"},
-            {year:116,plant:"星彰",unit:"",start:"2027-10-11",end:"2027-11-03",days:23,type:"IPP",region:"中部"},
-            {year:116,plant:"嘉惠",unit:"ST2",start:"2027-02-07",end:"2027-02-13",days:6,type:"IPP",region:"中部"},
-            {year:116,plant:"嘉惠",unit:"ST1",start:"2027-02-05",end:"2027-02-13",days:8,type:"IPP",region:"中部"},
-            {year:116,plant:"豐德",unit:"#2",start:"2027-11-14",end:"2027-12-07",days:23,type:"IPP",region:"中部"},
-            {year:116,plant:"大林",unit:"#1",start:"2027-12-12",end:"2028-03-13",days:92,type:"火力",region:"南部"},
-            {year:116,plant:"南部",unit:"CC#3 GT31",start:"2027-03-13",end:"2027-06-12",days:91,type:"複循環",region:"南部"},
-            {year:116,plant:"南部",unit:"CC#3 GT32",start:"2027-03-18",end:"2027-06-17",days:91,type:"複循環",region:"南部"},
-            {year:116,plant:"南部",unit:"CC#3 ST3",start:"2027-03-18",end:"2027-04-25",days:38,type:"複循環",region:"南部"},
-            {year:116,plant:"興達",unit:"新CC#1 GT11",start:"2027-10-15",end:"2028-01-17",days:94,type:"複循環",region:"南部"},
-            {year:116,plant:"興達",unit:"新CC#1 GT12",start:"2027-10-22",end:"2028-01-24",days:94,type:"複循環",region:"南部"},
-            {year:116,plant:"興達",unit:"新CC#1 ST1",start:"2027-10-15",end:"2028-02-11",days:119,type:"複循環",region:"南部"},
+        let allData = [
         ];
 
         // Deduplicate: same plant+unit with start dates within 30 days -> keep newer year
@@ -918,7 +520,7 @@
             });
             return result;
         }
-        const data = dedup(allData);
+        let data = dedup(allData);
 
         // 各時間粒度的最大日期範圍（天）
         const MAX_RANGE_DAYS = { day: 180, week: 365, month: 730 };
@@ -1190,7 +792,7 @@
                             const uN = (r.unit||'').toUpperCase();
                             const isGT = /GT\d/.test(uN);
                             const isST = /ST\d/.test(uN) && !isGT;
-                            const isETPlant = (r.plant === '林口' || r.plant === '協和');
+                            const isETPlant = r.type === '火力';
                             if (isST || (isETPlant && !isGT)) {
                                 let es, ee;
                                 const etOv = state.etOverrides[recKey];
@@ -1479,7 +1081,7 @@
                         const uNorm = (r.unit||'').toUpperCase();
                         const isGT = /GT\d/.test(uNorm);
                         const isST = /ST\d/.test(uNorm) && !isGT;
-                        const isETPlant = (r.plant === '林口' || r.plant === '協和');
+                        const isETPlant = r.type === '火力';
                         const needET = isST || (isETPlant && !isGT);
                         if (needET) {
                             const etKey = `${r.plant}|${r.unit||''}|${r.year}`;
@@ -1623,7 +1225,7 @@
                             const uN = (r.unit||'').toUpperCase();
                             const isGT = /GT\d/.test(uN);
                             const isST = /ST\d/.test(uN) && !isGT;
-                            const isETPlant = (r.plant === '林口' || r.plant === '協和');
+                            const isETPlant = r.type === '火力';
                             if (isST || (isETPlant && !isGT)) {
                                 const defETPC = state.pET;
                                 const etSplitsExist = recKey in state.etSplits;
@@ -2330,7 +1932,7 @@
                         const uN = (r.unit||'').toUpperCase();
                         const isGT = /GT\d/.test(uN);
                         const isST = /ST\d/.test(uN) && !isGT;
-                        const isETPlant = (r.plant === '林口' || r.plant === '協和');
+                        const isETPlant = r.type === '火力';
                         const needET = isST || (isETPlant && !isGT);
                         const cat = unitCategory(r.unit);
 
@@ -2560,316 +2162,476 @@
             e.target.value = '';
         });
 
-        render();
-        // Re-render on window resize to recalculate widths
-        window.addEventListener('resize', () => render());
-    </script>
-</body>
-    <!-- 
-================================
-返回 NDT 主頁按鈕
-================================
-用途：在你的各應用（assignwork, schedule, housing, hr）中使用
+        // ======================== PPTX 匯入 ========================
 
-複製此段代碼到你的應用頁面
--->
+        const REGION_MAP = {
+            '林口':'北部','大潭':'北部','協和':'北部','和平':'北部','核二':'北部',
+            '通霄':'中部','星元':'北部','麥寮':'北部',
+            '台中':'中部','嘉惠':'南部','星彰':'中部',
+            '大林':'南部','南部':'南部','核三':'南部','興達':'南部','豐德':'南部','興達新':'南部',
+        };
+        const PLANT_TYPE_MAP = {
+            '核二':'核能','核三':'核能',
+            '大潭':'複循環','通霄':'複循環','南部':'複循環','興達新':'複循環',
+            '和平':'IPP','嘉惠':'IPP','豐德':'IPP','星元':'IPP','星彰':'IPP','麥寮':'IPP',
+        };
 
-<!-- ======================== 方案1：頂部導航欄（推薦） ======================== -->
-
-<style>
-    .ndt-topbar {
-        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-        padding: 12px 20px;
-        display: flex;
-        align-items: center;
-        gap: 15px;
-        color: white;
-        box-shadow: 0 2px 8px rgba(102, 126, 234, 0.2);
-    }
-
-    .ndt-back-btn {
-        background: rgba(255,255,255,0.2);
-        color: white;
-        border: 1px solid rgba(255,255,255,0.3);
-        padding: 8px 14px;
-        border-radius: 6px;
-        cursor: pointer;
-        font-size: 0.9em;
-        font-weight: 600;
-        transition: all 0.2s;
-        font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-    }
-
-    .ndt-back-btn:hover {
-        background: rgba(255,255,255,0.3);
-        border-color: rgba(255,255,255,0.5);
-        transform: translateY(-1px);
-    }
-
-    .ndt-breadcrumb {
-        font-size: 0.9em;
-        opacity: 0.9;
-        flex: 1;
-    }
-
-    .ndt-breadcrumb strong {
-        font-weight: 600;
-    }
-</style>
-
-<!-- HTML 部分 -->
-<div class="ndt-topbar">
-    <button class="ndt-back-btn" onclick="ndtGoHome()">← 返回主頁</button>
-    <span class="ndt-breadcrumb">
-        NDT 工作管理系統 / <strong id="ndt-app-name">應用</strong>
-    </span>
-</div>
-
-<script>
-    // 返回主頁函數
-    function ndtGoHome() {
-        if (window.parent !== window) {
-            // 在 iframe 中運行
-            window.parent.postMessage({ action: 'switchApp', appId: 'home' }, '*');
-        } else {
-            // 獨立運行
-            window.location.href = '/';
-        }
-    }
-
-    // 自動設置應用名稱
-    function setAppName() {
-        const name = document.getElementById('ndt-app-name');
-        if (name) {
-            // 從 URL 提取應用名稱
-            const path = window.location.pathname;
-            const appNames = {
-                'assignwork': '工作分配',
-                'outage-schedule': '停機排程',
-                'taipower-housing-calc': '住宿預估',
-                'hr-summary': '人資摘要'
-            };
-            
-            for (let [key, value] of Object.entries(appNames)) {
-                if (path.includes(key)) {
-                    name.textContent = value;
-                    break;
-                }
+        function getPlantKey(name) {
+            for (const k of Object.keys(REGION_MAP)) {
+                if (name.startsWith(k)) return k;
             }
+            return name.slice(0,2);
         }
-    }
-
-    document.addEventListener('DOMContentLoaded', setAppName);
-</script>
-
-<!-- ======================== 方案2：懸浮返回按鈕 ======================== -->
-
-<style>
-    .ndt-floating-home {
-        position: fixed;
-        bottom: 30px;
-        right: 30px;
-        width: 56px;
-        height: 56px;
-        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-        border-radius: 50%;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        color: white;
-        font-size: 28px;
-        cursor: pointer;
-        box-shadow: 0 4px 16px rgba(102, 126, 234, 0.3);
-        transition: all 0.3s;
-        border: none;
-        z-index: 99;
-    }
-
-    .ndt-floating-home:hover {
-        transform: scale(1.1) translateY(-3px);
-        box-shadow: 0 8px 24px rgba(102, 126, 234, 0.4);
-    }
-
-    .ndt-floating-home:active {
-        transform: scale(0.95);
-    }
-
-    @media (max-width: 768px) {
-        .ndt-floating-home {
-            width: 48px;
-            height: 48px;
-            font-size: 24px;
-            bottom: 20px;
-            right: 20px;
+        function getPlantTypeFromKey(pk, unit) {
+            if (PLANT_TYPE_MAP[pk]) return PLANT_TYPE_MAP[pk];
+            if (/CC|GT\d|ST\d/.test(unit)) return '複循環';
+            return '火力';
         }
-    }
-</style>
 
-<!-- HTML 部分 -->
-<button class="ndt-floating-home" onclick="ndtGoHome()" title="返回主頁">🏠</button>
+        // 更新年度/電廠選單（動態資料載入後呼叫）
+        function refreshDataUI() {
+            const years = [...new Set(data.map(d=>d.year))].sort((a,b)=>a-b);
+            const yc = document.getElementById('yearCtrl');
+            yc.innerHTML = '';
+            years.forEach(y => {
+                const lbl = document.createElement('label');
+                lbl.className = 'chk';
+                lbl.innerHTML = `<input type="checkbox" ${state.years.has(String(y))?'checked':''}>${y}`;
+                lbl.querySelector('input').addEventListener('change', e => {
+                    if (e.target.checked) state.years.add(String(y));
+                    else state.years.delete(String(y));
+                    render();
+                });
+                yc.appendChild(lbl);
+            });
+            const plants = [...new Set(data.map(d=>d.plant))].sort();
+            const pl = document.getElementById('plantList');
+            pl.innerHTML = '';
+            plants.forEach(p => {
+                const lbl = document.createElement('label');
+                lbl.className = 'chk';
+                lbl.innerHTML = `<input type="checkbox" data-plant="${p}">${p}`;
+                lbl.querySelector('input').addEventListener('change', e => {
+                    if (e.target.checked) state.plants.add(p);
+                    else state.plants.delete(p);
+                    document.getElementById('pAll').checked = state.plants.size === 0;
+                    render();
+                });
+                pl.appendChild(lbl);
+            });
+        }
 
-<!-- ======================== 方案3：頁腳返回連結 ======================== -->
+        // ---- 日期解析 ----
+        const DATE_RE = /(?:(\d{3})\/)?(\d{1,2})\/(\d{1,2})-(?:(\d{3})\/)?(\d{1,2})\/(\d{1,2})/;
 
-<style>
-    .ndt-footer-link {
-        padding: 20px;
-        text-align: center;
-        border-top: 1px solid #e5e7eb;
-        background: #f9fafb;
-        margin-top: auto;
-    }
-
-    .ndt-footer-link a {
-        color: #667eea;
-        text-decoration: none;
-        font-weight: 600;
-        font-size: 0.9em;
-        transition: color 0.2s;
-    }
-
-    .ndt-footer-link a:hover {
-        color: #764ba2;
-    }
-</style>
-
-<!-- HTML 部分 -->
-<div class="ndt-footer-link">
-    <a href="#" onclick="ndtGoHome(); return false;">← 返回 NDT 管理系統主頁</a>
-</div>
-
-<!-- ======================== 完整集成範例 ======================== -->
-
-<!-- 
-在你的應用中集成，有兩種方式：
-
-方式1：只需複製上面的代碼到你的 HTML
-- CSS 自動加載
-- JavaScript 自動執行
-- 無需額外配置
-
-方式2：提取為單獨文件
-
-在你的 HTML 中引入：
-<link rel="stylesheet" href="ndt-topbar.css">
-<script src="ndt-topbar.js"></script>
-
-然後在 <body> 開頭放置：
-<div id="ndt-topbar-container"></div>
-
-示例完整 HTML：
-
-<!DOCTYPE html>
-<html>
-<head>
-    <meta charset="UTF-8">
-    <title>我的應用</title>
-    <style>
-        body { margin: 0; padding: 0; }
-        .ndt-topbar { ... }
-        .ndt-back-btn { ... }
-        /* 你的應用樣式 */
-    </style>
-</head>
-<body>
-    <!-- 返回主頁導航 -->
-    <div class="ndt-topbar">
-        <button class="ndt-back-btn" onclick="ndtGoHome()">← 返回主頁</button>
-        <span class="ndt-breadcrumb">
-            NDT 工作管理系統 / <strong id="ndt-app-name">應用</strong>
-        </span>
-    </div>
-
-    <!-- 你的應用內容 -->
-    <div class="app-content">
-        <!-- ... -->
-    </div>
-
-    <!-- 懸浮按鈕（可選） -->
-    <button class="ndt-floating-home" onclick="ndtGoHome()" title="返回主頁">🏠</button>
-
-    <script>
-        function ndtGoHome() {
-            if (window.parent !== window) {
-                window.parent.postMessage({ action: 'switchApp', appId: 'home' }, '*');
-            } else {
-                window.location.href = '/';
+        function parseDateRange(s, baseRoc) {
+            s = String(s||'').replace(/[（(][^）)]*[）)]/g,'').replace(/[~～].*/,'').trim().replace(/\s+/g,'');
+            const m = s.match(DATE_RE);
+            if (!m) return [null,null];
+            const hasY1=!!m[1], hasY2=!!m[4];
+            const sm=+m[2], sd=+m[3], em=+m[5], ed=+m[6];
+            if (!(sm>=1&&sm<=12&&sd>=1&&sd<=31&&em>=1&&em<=12&&ed>=1&&ed<=31)) return [null,null];
+            let sy, ey;
+            if (hasY1&&hasY2) { sy=+m[1]; ey=+m[4]; }
+            else if (hasY1) { sy=+m[1]; ey=sy+(em<sm||(em===sm&&ed<=sd)?1:0); }
+            else if (hasY2) { ey=+m[4]; sy=ey-(sm>em||(sm===em&&sd>ed)?1:0); }
+            else {
+                if (sm>=10&&em<=6) { sy=baseRoc; ey=baseRoc+1; }
+                else { sy=baseRoc; ey=sy+(em<sm||(em===sm&&ed<sd)?1:0); }
             }
+            const fmt=(y,mo,d)=>`${y+1911}-${String(mo).padStart(2,'0')}-${String(d).padStart(2,'0')}`;
+            const start=fmt(sy,sm,sd), end=fmt(ey,em,ed);
+            if (new Date(end)<new Date(start)) return [null,null];
+            return [start,end];
         }
 
-        function setAppName() {
-            const name = document.getElementById('ndt-app-name');
-            if (name) {
-                const path = window.location.pathname;
-                const appNames = {
-                    'assignwork': '工作分配',
-                    'outage-schedule': '停機排程',
-                    'taipower-housing-calc': '住宿預估',
-                    'hr-summary': '人資摘要'
-                };
-                
-                for (let [key, value] of Object.entries(appNames)) {
-                    if (path.includes(key)) {
-                        name.textContent = value;
-                        break;
+        // ---- PPTX 形狀解析 ----
+        function parsePptxShape(raw, baseRoc) {
+            const lines = raw.split('\n').map(l=>l.trim()).filter(Boolean);
+            if (!lines.length) return [];
+            const first = lines[0];
+            const records = [];
+            function makeRec(plant, unit, start, end, type, region) {
+                return {year:baseRoc, plant, unit, start, end,
+                    days:Math.ceil((new Date(end)-new Date(start))/864e5), type, region};
+            }
+            // 1. CC 複循環
+            const ccM = first.match(/^([^\s（(#\d、]+)(CC[#＃]?\d+)/);
+            if (ccM) {
+                const plant=ccM[1]; let ccNum=ccM[2].replace('＃','#');
+                if (!/CC#/.test(ccNum)) ccNum=ccNum.replace(/CC(\d)/,'CC#$1');
+                const pk=getPlantKey(plant), region=REGION_MAP[pk]||'北部';
+                for (const line of lines.slice(1)) {
+                    const gts=line.match(/^(GT|ST)(\d+)\s+(.*)/i);
+                    if (gts) {
+                        const item=gts[1].toUpperCase()+gts[2];
+                        const [start,end]=parseDateRange(gts[3],baseRoc);
+                        if (start&&end) records.push(makeRec(plant,`${ccNum} ${item}`,start,end,'複循環',region));
                     }
                 }
+                return records;
+            }
+            // 2. 獨立 GT/ST（電廠名直接接GT/ST，無 #）
+            const gtM = first.match(/^([^\s（(#\d、]+)(GT|ST)(\d+)\s*(.*)/i);
+            if (gtM && !/#/.test(gtM[1])) {
+                const plant=gtM[1], item=gtM[2].toUpperCase()+gtM[3];
+                const pk=getPlantKey(plant), region=REGION_MAP[pk]||'北部';
+                let [start,end]=parseDateRange(gtM[4],baseRoc);
+                if (!start) { for (const l of lines.slice(1)) { [start,end]=parseDateRange(l,baseRoc); if(start)break; } }
+                if (start&&end) records.push(makeRec(plant,item,start,end,getPlantTypeFromKey(pk,item),region));
+                return records;
+            }
+            // 3. 標準機組 #N（含可能的 GT/ST 子項）
+            const unitM = first.match(/^([^\s（(#\d、]+)([#＃]\d+(?:[、,][#＃]?\d+)*)/);
+            if (unitM) {
+                const plant=unitM[1], unitRaw=unitM[2].replace(/＃/g,'#');
+                const pk=getPlantKey(plant), region=REGION_MAP[pk]||'北部';
+                const hasGtSub=lines.slice(1).some(l=>/^(GT|ST)\d+/i.test(l));
+                if (hasGtSub) {
+                    for (const line of lines.slice(1)) {
+                        const gts=line.match(/^(GT|ST)(\d+)\s+(.*)/i);
+                        if (gts) {
+                            const item=gts[1].toUpperCase()+gts[2];
+                            const [start,end]=parseDateRange(gts[3],baseRoc);
+                            if(start&&end) records.push(makeRec(plant,`${unitRaw} ${item}`,start,end,getPlantTypeFromKey(pk,item),region));
+                        }
+                    }
+                } else {
+                    const u0=unitRaw.replace(/[、,].*/,'');
+                    for (const line of lines) {
+                        const [start,end]=parseDateRange(line,baseRoc);
+                        if(start&&end) { records.push(makeRec(plant,u0,start,end,getPlantTypeFromKey(pk,u0),region)); break; }
+                    }
+                }
+                return records;
+            }
+            // 4. IPP ST/GT 無 #（嘉惠ST2、星元 等）
+            const stM = first.match(/^([^\s（(#\d]+)(ST|GT)(\d*)\s*(.*)/i);
+            if (stM) {
+                const plant=stM[1], item=stM[2].toUpperCase()+stM[3];
+                const pk=getPlantKey(plant), region=REGION_MAP[pk]||'中部';
+                let [start,end]=parseDateRange(stM[4],baseRoc);
+                if (!start) { for (const l of lines.slice(1)) { [start,end]=parseDateRange(l,baseRoc); if(start)break; } }
+                if (start&&end) records.push(makeRec(plant,item,start,end,getPlantTypeFromKey(pk,item),region));
+            }
+            return records;
+        }
+
+        // ---- PPTX 主解析（JSZip + DOMParser）----
+        const NS_A = 'http://schemas.openxmlformats.org/drawingml/2006/main';
+        const NS_P = 'http://schemas.openxmlformats.org/presentationml/2006/main';
+        const SKIP_PPTX = ['年度各區','版本：','除夕','台灣電力公司','修護處','調度處','發電處','電廠：','董事長','配合調整','EOH'];
+
+        async function parsePptxSchedule(file) {
+            const ab = await file.arrayBuffer();
+            await loadScript('https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js');
+            const zip = await JSZip.loadAsync(ab);
+            const allRecords = [];
+            const slideNames = Object.keys(zip.files)
+                .filter(n=>/^ppt\/slides\/slide\d+\.xml$/.test(n))
+                .sort((a,b)=>parseInt(a.match(/\d+/)[0])-parseInt(b.match(/\d+/)[0]));
+            for (let i=0; i<slideNames.length; i++) {
+                const xmlStr = await zip.files[slideNames[i]].async('string');
+                const doc = new DOMParser().parseFromString(xmlStr,'text/xml');
+                let baseRoc = 114+(i+1);
+                const allT = doc.getElementsByTagNameNS(NS_A,'t');
+                const fullText = Array.from(allT).map(t=>t.textContent).join('');
+                const ym = fullText.match(/(\d{3})年度各區機組大修排程圖/);
+                if (ym) baseRoc = parseInt(ym[1]);
+                const spEls = Array.from(doc.getElementsByTagNameNS(NS_P,'sp'));
+                for (const sp of spEls) {
+                    const txBody = sp.getElementsByTagNameNS(NS_P,'txBody')[0];
+                    if (!txBody) continue;
+                    const paras = Array.from(txBody.getElementsByTagNameNS(NS_A,'p'));
+                    const paraTexts = paras.map(p=>{
+                        const runs=Array.from(p.getElementsByTagNameNS(NS_A,'r'));
+                        return runs.map(r=>{const t=r.getElementsByTagNameNS(NS_A,'t')[0];return t?t.textContent:'';}).join('');
+                    }).filter(t=>t.trim());
+                    if (!paraTexts.length) continue;
+                    const shapeText = paraTexts.join('\n');
+                    if (shapeText.length<3||SKIP_PPTX.some(p=>shapeText.includes(p))) continue;
+                    allRecords.push(...parsePptxShape(shapeText,baseRoc));
+                }
+            }
+            return allRecords;
+        }
+
+        // ---- 預覽/編輯 Modal ----
+        const MODAL_TYPES   = ['火力','核能','複循環','水力','IPP'];
+        const MODAL_REGIONS = ['北部','中部','南部'];
+
+        function makeSelect(opts, val) {
+            return `<select>${opts.map(o=>`<option${o===val?' selected':''}>${o}</option>`).join('')}</select>`;
+        }
+        function addPreviewRow(tbody, rec) {
+            const tr = document.createElement('tr');
+            tr.innerHTML = `
+                <td>${makeSelect(MODAL_REGIONS,rec.region)}</td>
+                <td><input type="text" value="${rec.plant||''}"></td>
+                <td><input type="text" value="${rec.unit||''}"></td>
+                <td>${makeSelect(MODAL_TYPES,rec.type)}</td>
+                <td><input type="date" value="${rec.start||''}"></td>
+                <td><input type="date" value="${rec.end||''}"></td>
+                <td><button class="del-row-btn" title="刪除此列">✕</button></td>`;
+            tr.querySelector('.del-row-btn').addEventListener('click', ()=>{ tr.remove(); updateCount(); highlightDuplicates(); });
+            tr.querySelectorAll('input[type=date]').forEach(inp => inp.addEventListener('change', highlightDuplicates));
+            tbody.appendChild(tr);
+        }
+        function updateCount() {
+            const n = document.querySelectorAll('#previewTable tbody tr').length;
+            document.querySelector('#previewFooter .cnt').textContent = `共 ${n} 筆`;
+        }
+
+        // ---- 排序 ----
+        let _sortCol = -1, _sortAsc = true;
+        function getRowSortVal(tr, col) {
+            const sels = tr.querySelectorAll('select');
+            const inputs = tr.querySelectorAll('input');
+            // col mapping: 0=地區(sel0), 1=電廠(input0), 4=開始日期(input2)
+            if (col === 0) return sels[0] ? sels[0].value : '';
+            if (col === 1) return inputs[0] ? inputs[0].value : '';
+            if (col === 4) return inputs[2] ? inputs[2].value : '';
+            return '';
+        }
+        function sortPreviewTable(col) {
+            const tbody = document.querySelector('#previewTable tbody');
+            const rows = Array.from(tbody.querySelectorAll('tr'));
+            if (_sortCol === col) _sortAsc = !_sortAsc;
+            else { _sortCol = col; _sortAsc = true; }
+            rows.sort((a, b) => {
+                const va = getRowSortVal(a, col), vb = getRowSortVal(b, col);
+                return _sortAsc ? va.localeCompare(vb) : vb.localeCompare(va);
+            });
+            rows.forEach(r => tbody.appendChild(r));
+            // Update header icons
+            // ---- 篩選 ----
+        function filterPreviewTable() {
+            const region = document.getElementById('fRegion').value;
+            const plant  = document.getElementById('fPlant').value.trim().toLowerCase();
+            const type   = document.getElementById('fType').value;
+            const rows   = Array.from(document.querySelectorAll('#previewTable tbody tr'));
+            let visible  = 0;
+            rows.forEach(tr => {
+                const sels   = tr.querySelectorAll('select');
+                const inputs = tr.querySelectorAll('input');
+                const rRegion = sels[0]?.value || '';
+                const rPlant  = (inputs[0]?.value || '').toLowerCase();
+                const rType   = sels[1]?.value || '';
+                const match = (!region || rRegion === region)
+                           && (!plant  || rPlant.includes(plant))
+                           && (!type   || rType === type);
+                tr.classList.toggle('hidden-row', !match);
+                if (match) visible++;
+            });
+            const total = rows.length;
+            document.getElementById('filterCount').textContent =
+                (visible < total) ? `顯示 ${visible} / ${total} 筆` : '';
+        }
+
+        ['fRegion','fType'].forEach(id =>
+            document.getElementById(id).addEventListener('change', filterPreviewTable));
+        document.getElementById('fPlant').addEventListener('input', filterPreviewTable);
+        document.getElementById('clearFilter').addEventListener('click', () => {
+            document.getElementById('fRegion').value = '';
+            document.getElementById('fPlant').value  = '';
+            document.getElementById('fType').value   = '';
+            filterPreviewTable();
+        });
+
+        document.querySelectorAll('#previewTable th.sortable').forEach(th => {
+                th.classList.remove('sort-asc','sort-desc');
+                if (parseInt(th.dataset.col) === col)
+                    th.classList.add(_sortAsc ? 'sort-asc' : 'sort-desc');
+            });
+        }
+        document.querySelectorAll('#previewTable th.sortable').forEach(th => {
+            th.addEventListener('click', () => { sortPreviewTable(parseInt(th.dataset.col)); highlightDuplicates(); });
+        });
+
+        // ---- 重複日期高亮 ----
+        function highlightDuplicates() {
+            const rows = Array.from(document.querySelectorAll('#previewTable tbody tr'));
+            // Count occurrences of each start+end pair
+            const freq = {};
+            rows.forEach(tr => {
+                const inputs = tr.querySelectorAll('input[type=date]');
+                const key = (inputs[0]?.value||'') + '|' + (inputs[1]?.value||'');
+                freq[key] = (freq[key]||0) + 1;
+            });
+            rows.forEach(tr => {
+                const inputs = tr.querySelectorAll('input[type=date]');
+                const key = (inputs[0]?.value||'') + '|' + (inputs[1]?.value||'');
+                if (freq[key] >= 2 && (inputs[0]?.value||inputs[1]?.value)) {
+                    tr.classList.add('dup-row');
+                } else {
+                    tr.classList.remove('dup-row');
+                }
+            });
+        }
+        // ---- 移除機組+開始日期+結束日期三欄完全相同的重複列 ----
+        function deduplicatePreviewRows() {
+            const rows = Array.from(document.querySelectorAll('#previewTable tbody tr'));
+            const seen = new Set();
+            let removed = 0;
+            rows.forEach(tr => {
+                const inputs = tr.querySelectorAll('input');
+                const unit  = inputs[1]?.value || '';
+                const start = inputs[2]?.value || '';
+                const end   = inputs[3]?.value || '';
+                const key   = unit + '|' + start + '|' + end;
+                if (seen.has(key)) { tr.remove(); removed++; }
+                else seen.add(key);
+            });
+            return removed;
+        }
+
+        function showPreviewTable(records) {
+            const tbody = document.querySelector('#previewTable tbody');
+            tbody.innerHTML = '';
+            records.forEach(r=>addPreviewRow(tbody,r));
+            const removed = deduplicatePreviewRows();
+            updateCount();
+            highlightDuplicates();
+            // Reset filters on open
+            document.getElementById('fRegion').value = '';
+            document.getElementById('fPlant').value  = '';
+            document.getElementById('fType').value   = '';
+            document.getElementById('filterCount').textContent = '';
+            document.getElementById('previewModal').classList.add('open');
+            if (removed > 0) {
+                document.querySelector('#previewFooter .cnt').textContent +=
+                    `　（已自動移除 ${removed} 筆重複）`;
             }
         }
 
-        document.addEventListener('DOMContentLoaded', setAppName);
+        document.getElementById('previewAddRow').addEventListener('click', ()=>{
+            const today = new Date().toISOString().slice(0,10);
+            addPreviewRow(document.querySelector('#previewTable tbody'),
+                {region:'北部',plant:'',unit:'',type:'火力',start:today,end:today});
+            updateCount();
+        });
+        document.getElementById('previewCancel').addEventListener('click', ()=>{
+            document.getElementById('previewModal').classList.remove('open');
+        });
+        document.getElementById('previewConfirm').addEventListener('click', ()=>{
+            const rows = document.querySelectorAll('#previewTable tbody tr');
+            const newRecords = [];
+            rows.forEach(tr=>{
+                const sels=tr.querySelectorAll('select'), inputs=tr.querySelectorAll('input');
+                const region=sels[0].value, plant=inputs[0].value.trim();
+                const unit=inputs[1].value.trim(), type=sels[1].value;
+                const start=inputs[2].value, end=inputs[3].value;
+                if (!plant||!start||!end) return;
+                const days=Math.ceil((new Date(end)-new Date(start))/864e5);
+                if (days<1) return;
+                const year=parseInt(start.slice(0,4))-1911;
+                newRecords.push({year,plant,unit,start,end,days,type,region});
+            });
+            if (!newRecords.length) { alert('沒有有效資料。'); return; }
+            allData.push(...newRecords);
+            data = dedup(allData);
+            newRecords.forEach(r=>state.years.add(String(r.year)));
+            refreshDataUI();
+            render();
+            document.getElementById('previewModal').classList.remove('open');
+            alert(`✅ 已加入 ${newRecords.length} 筆排程到甘特圖！`);
+        });
+
+        // ---- 匯入 PPTX 事件 ----
+        document.getElementById('importPdfBtn').addEventListener('click', ()=>{
+            document.getElementById('importPdfFile').click();
+        });
+        document.getElementById('importPdfFile').addEventListener('change', async (e)=>{
+            const file=e.target.files[0]; if (!file) return;
+            const btn=document.getElementById('importPdfBtn');
+            btn.disabled=true; btn.textContent='解析中...';
+            try {
+                const records = await parsePptxSchedule(file);
+                if (!records.length) {
+                    alert('未能從 PPTX 中解析出有效排程資料。\n請確認為台電大修排程圖格式。');
+                } else {
+                    showPreviewTable(records);
+                }
+            } catch(err) {
+                console.error('PPTX import error:',err);
+                alert('PPTX 解析失敗：'+err.message);
+            }
+            btn.textContent='匯入 PPTX'; btn.disabled=false;
+            e.target.value='';
+        });
+
+        // ── 甘特圖 bar 點擊移除 ──
+        let _pendingRemove = null; // {plant, unit, start, end, year}
+
+        const removePopup = document.getElementById('removePopup');
+        const removeInfo  = document.getElementById('removePopupInfo');
+
+        function showRemovePopup(el, rect) {
+            const p = el.dataset.p, u = el.dataset.u;
+            const s = el.dataset.s, e = el.dataset.e;
+            const y = el.dataset.y;
+            _pendingRemove = {plant:p, unit:u, start:s, end:e, year:+y};
+
+            removeInfo.innerHTML =
+                `<b>電廠：</b>${p}<br>` +
+                `<b>機組：</b>${u||'—'}<br>` +
+                `<b>開始：</b>${s}<br>` +
+                `<b>結束：</b>${e}<br>` +
+                `<b>天數：</b>${el.dataset.d} 天`;
+
+            // Position popup near click, avoid overflow
+            const vw = window.innerWidth, vh = window.innerHeight;
+            let px = rect.right + 8, py = rect.top;
+            removePopup.classList.add('open');
+            if (px + 350 > vw) px = rect.left - 350;
+            if (py + 180 > vh) py = vh - 190;
+            removePopup.style.left = Math.max(4, px) + 'px';
+            removePopup.style.top  = Math.max(4, py) + 'px';
+        }
+
+        document.getElementById('ganttInner').addEventListener('click', e => {
+            const bar = e.target.closest('.gbar');
+            if (!bar) return;
+            // Ignore NDT/ET bars (they have data-type attribute)
+            if (bar.dataset.type) return;
+            showRemovePopup(bar, bar.getBoundingClientRect());
+        });
+
+        document.getElementById('removeCancelBtn').addEventListener('click', () => {
+            removePopup.classList.remove('open');
+            _pendingRemove = null;
+        });
+
+        document.getElementById('removeConfirmBtn').addEventListener('click', () => {
+            if (!_pendingRemove) return;
+            const {plant, unit, start, end, year} = _pendingRemove;
+            // Remove ALL matching records from allData
+            const before = allData.length;
+            allData = allData.filter(r =>
+                !(r.plant===plant && (r.unit||'')===(unit||'') &&
+                  r.start===start  && r.end===end && r.year===year)
+            );
+            data = dedup(allData);
+            refreshDataUI();
+            render();
+            removePopup.classList.remove('open');
+            _pendingRemove = null;
+            console.log(`Removed ${before - allData.length} record(s).`);
+        });
+
+        // Close popup on outside click
+        document.addEventListener('click', e => {
+            if (removePopup.classList.contains('open') &&
+                !removePopup.contains(e.target) &&
+                !e.target.closest('.gbar')) {
+                removePopup.classList.remove('open');
+                _pendingRemove = null;
+            }
+        }, true);
+
+        render();
+        // Re-render on window resize
+        window.addEventListener('resize', ()=>render());
     </script>
 </body>
-</html>
-
--->
-
-<!-- ======================== 使用建議 ======================== -->
-
-<!-- 
-推薦搭配方案：
-
-1. 首頁導航欄（方案1）
-   ✅ 清晰提示用戶位置
-   ✅ 一致的導航體驗
-   ✅ 適合 iframe 環境
-
-2. 懸浮按鈕（方案2）
-   ✅ 始終可見
-   ✅ 不佔用頁面空間
-   ✅ 適合獨立應用
-
-3. 頁腳連結（方案3）
-   ✅ 簡潔、不侵入性
-   ✅ 適合底部導航
-   ✅ 適合傳統應用
-
-組合使用：
-- 頂部導航 + 懸浮按鈕（最推薦）
-- 頂部導航 + 頁腳連結
-- 只用懸浮按鈕（最簡單）
-
--->
-
-<!-- ======================== 測試 ======================== -->
-
-<!--
-
-測試清單：
-
-[ ] 複製代碼到應用 HTML
-[ ] 點擊返回按鈕
-[ ] 確認返回主頁（iframe 環境）
-[ ] 在主頁點擊應用卡片重新進入
-[ ] 測試應用名稱是否正確顯示
-[ ] 手機版點擊懸浮按鈕測試
-[ ] 點擊鏈接後歷史記錄正確
-
-如遇問題：
-1. 開啟瀏覽器控制台 (F12)
-2. 查看 Console 是否有錯誤
-3. 確認 ndtGoHome() 函數已定義
-4. 確認在 iframe 或獨立環境正確運行
-
--->
-
 </html>
